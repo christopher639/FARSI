@@ -1,4 +1,4 @@
-# Welcome to MY NIRU AI project -Forensic Analysis Reat-Time security Intelligence Platform (FARSI)
+# Welcome to MY NIRU AI project: Forensic Analysis Reat-Time security Intelligence Platform (FARSI)
 
 ## Project info
 
@@ -10,7 +10,7 @@ There are several ways of editing your application.
 
 **Use your preferred IDE**
 
-, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+You can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -45,18 +45,19 @@ npm run dev
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## What technologies are used for this project?
-Frontend stack 
-backend stack
-machine Learning stack
-ai stack
-tools
+- Frontend stack 
+- backend stack
+- machine Learning stack
+- ai stack
+- tools
 
 This project is built with:
-
+**Frontend**
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
-  Other comming soon
+
+**  Other comming soon**
 
