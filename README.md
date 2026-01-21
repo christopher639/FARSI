@@ -1,4 +1,4 @@
-# Welcome to MY NIRU AI project -Forensic Analysis reat-Time security Intelligence Platform (FARSI)
+# Welcome to MY NIRU AI project -Forensic Analysis Reat-Time security Intelligence Platform (FARSI)
 
 ## Project info
 
