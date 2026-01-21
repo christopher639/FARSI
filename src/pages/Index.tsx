@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -6,20 +7,27 @@ import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
 import { NetworkGraph } from "@/components/dashboard/NetworkGraph";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { AlertTriangle, Shield, Users, FileText, Crosshair, Radio } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Fixed Header */}
+      <Header />
+
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
-      {/* Main Content */}
-      <div className="pl-20">
-        {/* Header */}
-        <Header />
-
-        {/* Dashboard Content */}
-        <main className="p-6 grid-pattern min-h-[calc(100vh-4rem)]">
+      {/* Main Content - Scrollable */}
+      <main 
+        className={cn(
+          "pt-16 min-h-screen transition-all duration-300 ease-in-out",
+          sidebarOpen ? "pl-64" : "pl-16"
+        )}
+      >
+        <div className="p-6 grid-pattern">
           <div className="max-w-[1800px] mx-auto space-y-6">
             {/* Metrics Row */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 stagger-children">
@@ -105,8 +113,8 @@ const Index = () => {
               </div>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };
