@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { 
   Shield, 
   Map, 
@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
 interface NavItem {
   icon: React.ElementType;
   label: string;
+  path: string;
   badge?: number;
-  active?: boolean;
 }
 
 interface Agency {
@@ -29,14 +29,14 @@ interface Agency {
 }
 
 const navItems: NavItem[] = [
-  { icon: Shield, label: "Command Center", active: true },
-  { icon: Map, label: "Threat Heatmap", badge: 3 },
-  { icon: Bell, label: "Alerts", badge: 8 },
-  { icon: Network, label: "Network Analysis" },
-  { icon: Eye, label: "Surveillance" },
-  { icon: FileText, label: "Intelligence Reports" },
-  { icon: Radio, label: "Communications" },
-  { icon: Database, label: "Data Fusion Hub" },
+  { icon: Shield, label: "Command Center", path: "/" },
+  { icon: Map, label: "Threat Heatmap", path: "/threat-heatmap", badge: 3 },
+  { icon: Bell, label: "Alerts", path: "/alerts", badge: 8 },
+  { icon: Network, label: "Network Analysis", path: "/network-analysis" },
+  { icon: Eye, label: "Surveillance", path: "/surveillance" },
+  { icon: FileText, label: "Intelligence Reports", path: "/intelligence-reports" },
+  { icon: Radio, label: "Communications", path: "/communications" },
+  { icon: Database, label: "Data Fusion Hub", path: "/data-fusion" },
 ];
 
 const agencies: Agency[] = [
@@ -58,6 +58,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
+  const location = useLocation();
+
   return (
     <aside 
       className={cn(
@@ -77,7 +79,12 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       <nav className="flex-1 py-4 overflow-y-auto">
         <div className="px-3 space-y-1">
           {navItems.map((item) => (
-            <NavButton key={item.label} {...item} isOpen={isOpen} />
+            <NavButton 
+              key={item.label} 
+              {...item} 
+              isOpen={isOpen} 
+              isActive={location.pathname === item.path}
+            />
           ))}
         </div>
 
@@ -109,26 +116,33 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
       {/* Settings at Bottom */}
       <div className="p-3 border-t border-sidebar-border">
-        <NavButton icon={Settings} label="Settings" isOpen={isOpen} />
+        <NavButton 
+          icon={Settings} 
+          label="Settings" 
+          path="/settings"
+          isOpen={isOpen} 
+          isActive={location.pathname === "/settings"}
+        />
       </div>
     </aside>
   );
 }
 
-function NavButton({ icon: Icon, label, badge, active, isOpen }: NavItem & { isOpen: boolean }) {
+function NavButton({ icon: Icon, label, path, badge, isOpen, isActive }: NavItem & { isOpen: boolean; isActive: boolean }) {
   return (
-    <button
+    <NavLink
+      to={path}
       className={cn(
         "w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative",
         isOpen ? "px-3 py-2.5" : "px-0 py-2.5 justify-center",
-        active 
+        isActive 
           ? "bg-primary/10 text-primary border border-primary/30" 
           : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
       )}
       title={!isOpen ? label : undefined}
     >
       <div className="relative flex-shrink-0">
-        <Icon className={cn("w-5 h-5", active && "text-glow")} />
+        <Icon className={cn("w-5 h-5", isActive && "text-glow")} />
         {/* Badge on icon when collapsed */}
         {badge && !isOpen && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
@@ -155,7 +169,7 @@ function NavButton({ icon: Icon, label, badge, active, isOpen }: NavItem & { isO
           {badge && <span className="ml-2 text-destructive">({badge})</span>}
         </span>
       )}
-    </button>
+    </NavLink>
   );
 }
 
