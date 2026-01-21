@@ -1,98 +1,206 @@
+import { useState } from "react";
 import { 
   Shield, 
   Map, 
   Bell, 
-  Users, 
-  BarChart3, 
   Network, 
-  Settings, 
-  Radio,
   Eye,
-  Lock
+  FileText,
+  Radio,
+  Database,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
   icon: React.ElementType;
   label: string;
-  active?: boolean;
   badge?: number;
+  active?: boolean;
+}
+
+interface Agency {
+  code: string;
+  name: string;
+  status: 'online' | 'offline' | 'syncing';
 }
 
 const navItems: NavItem[] = [
-  { icon: Map, label: "Threat Map", active: true },
-  { icon: Bell, label: "Alerts", badge: 12 },
-  { icon: Network, label: "Networks" },
-  { icon: Users, label: "Entities" },
-  { icon: BarChart3, label: "Analytics" },
+  { icon: Shield, label: "Command Center", active: true },
+  { icon: Map, label: "Threat Heatmap", badge: 3 },
+  { icon: Bell, label: "Alerts", badge: 8 },
+  { icon: Network, label: "Network Analysis" },
   { icon: Eye, label: "Surveillance" },
-  { icon: Radio, label: "Comms" },
+  { icon: FileText, label: "Intelligence Reports" },
+  { icon: Radio, label: "Communications" },
+  { icon: Database, label: "Data Fusion Hub" },
 ];
 
-const bottomNavItems: NavItem[] = [
-  { icon: Settings, label: "Settings" },
+const agencies: Agency[] = [
+  { code: "NPS", name: "National Police Service", status: 'online' },
+  { code: "NIS", name: "National Intelligence Service", status: 'online' },
+  { code: "KWS", name: "Kenya Wildlife Service", status: 'online' },
+  { code: "DCI", name: "Directorate of Criminal Investigations", status: 'syncing' },
 ];
 
-export function Sidebar() {
+const statusColors = {
+  online: 'bg-success',
+  offline: 'bg-destructive',
+  syncing: 'bg-warning animate-pulse',
+};
+
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-20 bg-sidebar border-r border-sidebar-border flex flex-col items-center py-6 z-50">
-      {/* Logo */}
-      <div className="mb-8 relative">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center glow-primary">
-          <Shield className="w-6 h-6 text-primary" />
-        </div>
-        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-success rounded-full border-2 border-sidebar" />
-      </div>
+    <aside 
+      className={cn(
+        "fixed left-0 top-16 h-[calc(100vh-4rem)] bg-sidebar border-r border-sidebar-border flex flex-col z-40 transition-all duration-300 ease-in-out",
+        isOpen ? "w-64" : "w-16"
+      )}
+    >
+      {/* Toggle Button */}
+      <button
+        onClick={onToggle}
+        className="absolute -right-3 top-6 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground shadow-lg hover:scale-110 transition-transform z-50"
+      >
+        {isOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+      </button>
 
-      {/* Main Nav */}
-      <nav className="flex-1 flex flex-col items-center gap-2 stagger-children">
-        {navItems.map((item) => (
-          <NavButton key={item.label} {...item} />
-        ))}
+      {/* Main Navigation */}
+      <nav className="flex-1 py-4 overflow-y-auto">
+        <div className="px-3 space-y-1">
+          {navItems.map((item) => (
+            <NavButton key={item.label} {...item} isOpen={isOpen} />
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div className="my-4 mx-3">
+          <div className={cn(
+            "h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent",
+            !isOpen && "mx-2"
+          )} />
+        </div>
+
+        {/* Connected Agencies Section */}
+        <div className="px-3">
+          {isOpen && (
+            <div className="flex items-center gap-2 px-3 mb-3">
+              <Building2 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Connected Agencies
+              </span>
+            </div>
+          )}
+          <div className="space-y-1">
+            {agencies.map((agency) => (
+              <AgencyButton key={agency.code} agency={agency} isOpen={isOpen} />
+            ))}
+          </div>
+        </div>
       </nav>
 
-      {/* Security Badge */}
-      <div className="my-4 px-2">
-        <div className="w-12 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      {/* Settings at Bottom */}
+      <div className="p-3 border-t border-sidebar-border">
+        <NavButton icon={Settings} label="Settings" isOpen={isOpen} />
       </div>
-
-      {/* Bottom Nav */}
-      <nav className="flex flex-col items-center gap-2">
-        {bottomNavItems.map((item) => (
-          <NavButton key={item.label} {...item} />
-        ))}
-        <div className="mt-2 flex items-center justify-center w-12 h-12 text-muted-foreground">
-          <Lock className="w-4 h-4" />
-        </div>
-      </nav>
     </aside>
   );
 }
 
-function NavButton({ icon: Icon, label, active, badge }: NavItem) {
+function NavButton({ icon: Icon, label, badge, active, isOpen }: NavItem & { isOpen: boolean }) {
   return (
     <button
       className={cn(
-        "relative w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 group",
+        "w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative",
+        isOpen ? "px-3 py-2.5" : "px-0 py-2.5 justify-center",
         active 
-          ? "bg-primary/10 text-primary glow-primary border border-primary/30" 
-          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          ? "bg-primary/10 text-primary border border-primary/30" 
+          : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent"
       )}
-      title={label}
+      title={!isOpen ? label : undefined}
     >
-      <Icon className="w-5 h-5" />
+      <div className="relative flex-shrink-0">
+        <Icon className={cn("w-5 h-5", active && "text-glow")} />
+        {/* Badge on icon when collapsed */}
+        {badge && !isOpen && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+            {badge}
+          </span>
+        )}
+      </div>
       
-      {/* Badge */}
-      {badge && (
-        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-          {badge}
+      {isOpen && (
+        <>
+          <span className="flex-1 text-left text-sm font-medium truncate">{label}</span>
+          {badge && (
+            <span className="min-w-[20px] h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center px-1.5">
+              {badge}
+            </span>
+          )}
+        </>
+      )}
+
+      {/* Tooltip when collapsed */}
+      {!isOpen && (
+        <span className="absolute left-full ml-3 px-2 py-1.5 bg-card border border-panel-border rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg">
+          {label}
+          {badge && <span className="ml-2 text-destructive">({badge})</span>}
         </span>
       )}
-      
-      {/* Tooltip */}
-      <span className="absolute left-full ml-3 px-2 py-1 bg-card border border-panel-border rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-        {label}
-      </span>
     </button>
+  );
+}
+
+function AgencyButton({ agency, isOpen }: { agency: Agency; isOpen: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-lg transition-all duration-200 group relative",
+        isOpen ? "px-3 py-2" : "px-0 py-2 justify-center",
+        "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-accent cursor-pointer"
+      )}
+      title={!isOpen ? `${agency.code} - ${agency.name}` : undefined}
+    >
+      <div className="relative flex-shrink-0">
+        <div className={cn(
+          "w-8 h-8 rounded-lg border flex items-center justify-center text-[10px] font-bold",
+          agency.status === 'online' 
+            ? "bg-success/10 border-success/30 text-success"
+            : agency.status === 'syncing'
+            ? "bg-warning/10 border-warning/30 text-warning"
+            : "bg-muted border-muted-foreground/30 text-muted-foreground"
+        )}>
+          {agency.code}
+        </div>
+        {/* Status dot */}
+        <div className={cn(
+          "absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-sidebar",
+          statusColors[agency.status]
+        )} />
+      </div>
+
+      {isOpen && (
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{agency.code}</p>
+          <p className="text-[10px] text-muted-foreground truncate">{agency.name}</p>
+        </div>
+      )}
+
+      {/* Tooltip when collapsed */}
+      {!isOpen && (
+        <span className="absolute left-full ml-3 px-2 py-1.5 bg-card border border-panel-border rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg">
+          <span className="font-medium">{agency.code}</span>
+          <span className="text-muted-foreground ml-1">- {agency.name}</span>
+        </span>
+      )}
+    </div>
   );
 }
