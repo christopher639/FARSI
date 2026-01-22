@@ -1,5 +1,5 @@
 **** NIRU AI Project****
-FARSI — Forensic Analysis Real-Time Security Intelligence Platform
+FARSIS — Forensic Analysis Real-Time Security Intelligence System
 1. Project Overview
 
 FARSI (Forensic Analysis Real-Time Security Intelligence Platform) is an AI-powered security intelligence system designed to modernize and strengthen Kenya’s national security operations. The platform enables real-time data fusion, advanced analytics, and predictive intelligence to support proactive policing, crime prevention, and inter-agency collaboration.
