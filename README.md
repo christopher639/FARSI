@@ -1,10 +1,10 @@
-**** NIRU AI Project****
+NIRU AI Project
 FARSIS — Forensic Analysis Real-Time Security Intelligence System
-1. Project Overview
+Project Overview
 
 FARSI (Forensic Analysis Real-Time Security Intelligence Platform) is an AI-powered security intelligence system designed to modernize and strengthen Kenya’s national security operations. The platform enables real-time data fusion, advanced analytics, and predictive intelligence to support proactive policing, crime prevention, and inter-agency collaboration.
 
-2. Problem Statement
+Problem Statement
 
 Kenya faces a complex and evolving security threat landscape, including terrorism, cross-border crime, urban violence, and livestock rustling. Despite the vast amounts of data collected daily by agencies such as the National Police Service (NPS), National Intelligence Service (NIS), and others, critical operational gaps remain.
 
@@ -31,13 +31,13 @@ Manual analysis of this data is slow, inefficient, and prone to human error, lea
 
 Current security operations are largely reactive, responding only after incidents occur. The absence of advanced analytical and predictive tools limits the ability to anticipate threats, prevent attacks, and optimize resource deployment.
 
-3. Proposed Solution: FARSI
+Proposed Solution: FARSI
 
 FARSI is a unified, AI-driven intelligence platform designed to transform Kenya’s security operations from reactive to predictive. It breaks down data silos, automates intelligence analysis, and delivers actionable insights in real time.
 
 The solution is built on three integrated pillars.
 
-4. FARSI System Architecture
+FARSI System Architecture
 Pillar 1: Secure Multi-Modal Data Fusion Hub
 
 FARSI provides a centralized and secure data integration platform through controlled API gateways. Authorized agencies can contribute data while retaining full ownership and control.
@@ -86,7 +86,7 @@ Uses graph neural networks to map complex criminal and terrorist networks
 
 Identifies key influencers, hidden relationships, and operational vulnerabilities
 
-Fuses historical data with real-time feeds to generate predictive threat heatmaps, highlighting high-risk areas for incidents such as:
+Fuses historical data with real-time feeds to generate predictive threat heatmaps, highlighting high-risk areas for:
 
 IED placements
 
@@ -118,7 +118,7 @@ Optional Federated Learning, allowing AI models to be trained locally on agency 
 
 Ensures data sovereignty, security, and compliance with ethical standards
 
-5. Relevance to the Theme: Security, Safety, and Policing
+Relevance to the Theme: Security, Safety, and Policing
 
 FARSI directly aligns with and advances the theme of Security, Safety, and Policing by redefining how security agencies operate.
 
@@ -150,11 +150,11 @@ Other national security agencies
 
 Early warnings and enhanced situational awareness reduce the risk to security personnel while providing citizens with a more responsive and intelligent security infrastructure.
 
-6. Thematic Area
+Thematic Area
 
 Security, Safety, and Policing
 
-7. Technology Stack & Methodology
+Technology Stack & Methodology
 7.1 AI & Machine Learning
 
 TensorFlow
@@ -167,7 +167,7 @@ Hugging Face
 
 OpenCV
 
-Neo4j (graph databases)
+Neo4j
 
 7.2 Backend & Data Engineering
 
@@ -177,11 +177,13 @@ PostgreSQL
 
 Elasticsearch
 
-Apache Kafka (real-time data streaming)
+Apache Kafka
 
 7.3 Infrastructure & Deployment
 
-Docker & Kubernetes
+Docker
+
+Kubernetes
 
 Government-Private Cloud deployment for scalability and data sovereignty
 
@@ -197,13 +199,13 @@ Role-Based Access Control (RBAC)
 
 Agile development
 
-Initial Minimum Viable Product (MVP) focused on predictive threat heatmapping for hackathon demonstration
+Initial MVP focused on predictive threat heatmapping for hackathon demonstration
 
-8. Project URL
+Project URL
 
-URL: Coming Soon
+Coming Soon
 
-9. Technologies Used in This Project
+Technologies Used in This Project
 Frontend Stack
 
 Vite
@@ -217,37 +219,20 @@ shadcn-ui
 Tailwind CSS
 
 Backend Stack
-
 Python (FastAPI / Django)
-
 PostgreSQL
-
 Kafka
-
 Elasticsearch
-
 Machine Learning & AI Stack
-
 TensorFlow
-
 PyTorch
-
 Hugging Face
-
 SpaCy
-
 OpenCV
-
 Neo4j
-
 Tools
-
 Docker
-
 Kubernetes
-
 GitHub
-
 GitHub Codespaces
-
 More components coming soon.
