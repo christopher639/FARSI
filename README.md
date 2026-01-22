@@ -2,8 +2,10 @@
 
 ## Project info
 
-Project Details
-Problem Statement
+-- Project Details
+
+-- Problem Statement
+
 Kenya's security apparatus faces a multifaceted threat environment, from terrorism and cross-border crime to urban violence and livestock rustling. A critical operational gap persists despite the vast data collected by agencies like the National Police Service (NPS), National Intelligence Service (NIS), and others. This gap is characterized by three key challenges: Information Silos: Vital intelligence is often trapped within individual agencies, preventing a unified, holistic view of the security landscape. A police report in Garissa, a financial transaction in Nairobi, and a border alert in Mandera may all be connected, but the silos prevent this linkage. Data Overload and Manual Analysis: Security forces are inundated with unstructured data—text reports, intercepted communications, CCTV footage, and satellite imagery. Manual analysis of this data is slow, inefficient, and prone to human error, leading to delayed responses and missed patterns. Reactive, Not Proactive, Posture: The current paradigm is largely reactive. Security operations are often mobilized after an incident has occurred. There is a lack of advanced analytical tools to fuse disparate data streams and generate predictive, actionable intelligence that can prevent attacks. This siloed, slow, and reactive approach hampers Kenya's ability to pre-empt threats, optimize resource deployment, and ensure the safety of its citizens and stability of the nation.
 
 Proposed Solution
