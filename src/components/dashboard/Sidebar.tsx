@@ -11,15 +11,18 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Building2
+  Building2,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavItem {
   icon: React.ElementType;
   label: string;
   path: string;
   badge?: number;
+  adminOnly?: boolean;
 }
 
 interface Agency {
@@ -37,6 +40,7 @@ const navItems: NavItem[] = [
   { icon: FileText, label: "Intelligence Reports", path: "/intelligence-reports" },
   { icon: Radio, label: "Communications", path: "/communications" },
   { icon: Database, label: "Data Fusion Hub", path: "/data-fusion" },
+  { icon: Users, label: "User Management", path: "/users", adminOnly: true },
 ];
 
 const agencies: Agency[] = [
@@ -59,6 +63,10 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const location = useLocation();
+  const { isAdmin } = useAuth();
+
+  // Filter nav items based on role
+  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside 
@@ -78,7 +86,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       {/* Main Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto">
         <div className="px-3 space-y-1">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavButton 
               key={item.label} 
               {...item} 

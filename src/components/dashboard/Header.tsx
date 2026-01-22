@@ -1,6 +1,17 @@
-import { Bell, Search, User, Signal, Clock, Menu } from "lucide-react";
+import { Bell, Search, User, Clock, LogOut, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Shield } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -8,11 +19,27 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { user, userRole, signOut } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
+  const getRoleBadgeColor = (role: string | null) => {
+    switch (role) {
+      case 'admin': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'analyst': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'viewer': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 border-b border-panel-border bg-card/95 backdrop-blur-sm flex items-center justify-between px-6 z-50">
@@ -20,15 +47,17 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-4">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center glow-primary">
-            <Shield className="w-5 h-5 text-primary" />
-          </div>
+          <img 
+            src="/android-chrome-192x192.png" 
+            alt="FARSI Logo" 
+            className="w-10 h-10 rounded-xl"
+          />
           <div>
             <h1 className="text-lg font-semibold text-foreground">
               FARSI <span className="text-primary text-glow">Command</span>
             </h1>
             <p className="text-[10px] text-muted-foreground font-mono tracking-wide">
-              Fusion & Analysis for Real-time Security Intelligence
+              Forensic Analysis Real-Time Security Intelligence
             </p>
           </div>
         </div>
@@ -67,16 +96,39 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Divider */}
         <div className="h-8 w-px bg-panel-border" />
 
-        {/* User */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium">Operator Alpha</p>
-            <p className="text-xs text-muted-foreground">Level 5 Access</p>
-          </div>
-          <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
-            <User className="w-5 h-5 text-primary" />
-          </div>
-        </div>
+        {/* User Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-3 hover:bg-secondary/50 rounded-lg p-2 transition-colors">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium">{user?.email?.split('@')[0] || 'User'}</p>
+                <Badge className={`text-[10px] ${getRoleBadgeColor(userRole)}`}>
+                  {userRole || 'No Role'}
+                </Badge>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-card border-primary/20">
+            <DropdownMenuLabel>
+              <div>
+                <p className="font-medium">{user?.email}</p>
+                <p className="text-xs text-muted-foreground capitalize">{userRole} Access</p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={handleSignOut}
+              className="text-destructive focus:text-destructive cursor-pointer"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
