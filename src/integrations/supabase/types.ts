@@ -1,4 +1,4 @@
-export type Json =
+t export type Json =
   | string
   | number
   | boolean
