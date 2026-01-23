@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
+  const [isMounted, setIsMounted] = useState(true);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -35,55 +36,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        setUserRole(null);
+        if (isMounted) setUserRole(null);
         return;
       }
 
-      setUserRole(data?.role as AppRole || null);
+      if (isMounted) setUserRole(data?.role as AppRole || null);
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setUserRole(null);
+      if (isMounted) setUserRole(null);
     }
   };
 
+  const fetchAndSetRole = async (userId: string) => {
+    if (isMounted) setLoading(true);
+    await fetchUserRole(userId);
+    if (isMounted) setLoading(false);
+  };
+
   useEffect(() => {
+    setIsMounted(true);
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Defer role fetching to avoid deadlock
-          setTimeout(() => fetchUserRole(session.user.id), 0);
-        } else {
-          setUserRole(null);
+        if (isMounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            // Fetch role and keep loading state true until complete
+            await fetchAndSetRole(session.user.id);
+          } else {
+            setUserRole(null);
+            setLoading(false);
+          }
         }
-        
-        setLoading(false);
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserRole(session.user.id);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (isMounted) {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchAndSetRole(session.user.id);
+        } else {
+          setLoading(false);
+        }
       }
-      
-      setLoading(false);
+    }).catch((error) => {
+      console.error('Error getting session:', error);
+      if (isMounted) setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      setIsMounted(false);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    // Clear any previous session before attempting new login
+    await supabase.auth.signOut();
+    
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    // If login failed, ensure session is cleared
+    if (error) {
+      setUser(null);
+      setSession(null);
+      setUserRole(null);
+      setLoading(false);
+      return { error };
+    }
+    
+    // If login successful, fetch the user's role
+    if (data.user) {
+      await fetchAndSetRole(data.user.id);
+    } else {
+      setLoading(false);
+    }
+    
     return { error };
   };
 
