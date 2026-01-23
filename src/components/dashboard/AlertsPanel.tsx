@@ -1,59 +1,9 @@
-import { AlertTriangle, AlertCircle, Info, ChevronRight, Clock } from "lucide-react";
+import { AlertTriangle, AlertCircle, Info, ChevronRight, Clock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useThreatAlerts } from "@/hooks/useThreatAlerts";
+import { formatDistanceToNow } from "date-fns";
 
-interface Alert {
-  id: string;
-  type: 'critical' | 'warning' | 'info';
-  title: string;
-  location: string;
-  time: string;
-  description: string;
-}
-
-const alerts: Alert[] = [
-  {
-    id: '1',
-    type: 'critical',
-    title: 'IED Threat Detected',
-    location: 'Garissa County',
-    time: '2 min ago',
-    description: 'AI flagged suspicious vehicle movement near checkpoint'
-  },
-  {
-    id: '2',
-    type: 'critical',
-    title: 'Network Cluster Identified',
-    location: 'Mandera',
-    time: '8 min ago',
-    description: '5 new connections mapped to known threat actor'
-  },
-  {
-    id: '3',
-    type: 'warning',
-    title: 'Unusual Crowd Formation',
-    location: 'Nairobi CBD',
-    time: '15 min ago',
-    description: 'CCTV anomaly detection triggered at intersection'
-  },
-  {
-    id: '4',
-    type: 'warning',
-    title: 'Border Activity Spike',
-    location: 'Somalia Border',
-    time: '23 min ago',
-    description: 'Increased movement patterns detected'
-  },
-  {
-    id: '5',
-    type: 'info',
-    title: 'Patrol Unit Deployed',
-    location: 'Lamu County',
-    time: '45 min ago',
-    description: 'Response team dispatched to maritime zone'
-  },
-];
-
-const alertConfig = {
+const severityConfig = {
   critical: { 
     icon: AlertTriangle, 
     bg: 'bg-destructive/10', 
@@ -61,24 +11,41 @@ const alertConfig = {
     iconColor: 'text-destructive',
     badge: 'bg-destructive text-destructive-foreground'
   },
-  warning: { 
+  high: { 
     icon: AlertCircle, 
     bg: 'bg-warning/10', 
     border: 'border-warning/30',
     iconColor: 'text-warning',
     badge: 'bg-warning text-warning-foreground'
   },
-  info: { 
-    icon: Info, 
+  medium: { 
+    icon: AlertCircle, 
     bg: 'bg-primary/10', 
     border: 'border-primary/30',
     iconColor: 'text-primary',
     badge: 'bg-primary text-primary-foreground'
   },
+  low: { 
+    icon: Info, 
+    bg: 'bg-muted/50', 
+    border: 'border-muted-foreground/20',
+    iconColor: 'text-muted-foreground',
+    badge: 'bg-muted text-muted-foreground'
+  },
+  info: { 
+    icon: Info, 
+    bg: 'bg-success/10', 
+    border: 'border-success/30',
+    iconColor: 'text-success',
+    badge: 'bg-success text-success-foreground'
+  },
 };
 
 export function AlertsPanel() {
-  const criticalCount = alerts.filter(a => a.type === 'critical').length;
+  const { alerts, loading } = useThreatAlerts();
+  
+  const displayAlerts = alerts.slice(0, 10);
+  const criticalCount = alerts.filter(a => a.severity === 'critical').length;
 
   return (
     <div className="panel-glow flex flex-col h-full">
@@ -107,47 +74,61 @@ export function AlertsPanel() {
 
       {/* Alerts List */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-2 space-y-2 stagger-children">
-          {alerts.map((alert) => {
-            const config = alertConfig[alert.type];
-            const Icon = config.icon;
-            
-            return (
-              <div
-                key={alert.id}
-                className={cn(
-                  "p-3 rounded-lg border cursor-pointer transition-all hover:bg-secondary/50 group",
-                  config.bg,
-                  config.border
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={cn("mt-0.5", config.iconColor)}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className={cn(
-                        "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
-                        config.badge
-                      )}>
-                        {alert.type}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {alert.time}
-                      </span>
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
+        ) : displayAlerts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+            <AlertTriangle className="w-8 h-8 mb-2 opacity-50" />
+            <p className="text-sm">No active alerts</p>
+          </div>
+        ) : (
+          <div className="p-2 space-y-2 stagger-children">
+            {displayAlerts.map((alert) => {
+              const severity = alert.severity || 'medium';
+              const config = severityConfig[severity as keyof typeof severityConfig] || severityConfig.medium;
+              const Icon = config.icon;
+              
+              return (
+                <div
+                  key={alert.id}
+                  className={cn(
+                    "p-3 rounded-lg border cursor-pointer transition-all hover:bg-secondary/50 group",
+                    config.bg,
+                    config.border
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={cn("mt-0.5", config.iconColor)}>
+                      <Icon className="w-4 h-4" />
                     </div>
-                    <h3 className="text-sm font-medium text-foreground truncate">{alert.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">{alert.location}</p>
-                    <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">{alert.description}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
+                          config.badge
+                        )}>
+                          {severity}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-medium text-foreground truncate">{alert.title}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">{alert.location || 'Unknown location'}</p>
+                      {alert.description && (
+                        <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2">{alert.description}</p>
+                      )}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-2" />
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-2" />
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
