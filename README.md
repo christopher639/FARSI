@@ -1,238 +1,236 @@
-NIRU AI Project
-FARSIS — Forensic Analysis Real-Time Security Intelligence System
-Project Overview
+# FARSI: Forensic Analysis Real-Time Security Intelligence System
 
-FARSI (Forensic Analysis Real-Time Security Intelligence Platform) is an AI-powered security intelligence system designed to modernize and strengthen Kenya’s national security operations. The platform enables real-time data fusion, advanced analytics, and predictive intelligence to support proactive policing, crime prevention, and inter-agency collaboration.
+> An AI-powered security intelligence platform modernizing Kenya's national security operations
 
-Problem Statement
+---
 
-Kenya faces a complex and evolving security threat landscape, including terrorism, cross-border crime, urban violence, and livestock rustling. Despite the vast amounts of data collected daily by agencies such as the National Police Service (NPS), National Intelligence Service (NIS), and others, critical operational gaps remain.
+## Table of Contents
+- [Project Overview](#project-overview)
+- [Problem Statement](#problem-statement)
+- [Proposed Solution](#proposed-solution)
+- [System Architecture](#system-architecture)
+- [Key Features](#key-features)
+- [Data Protection & Ethics](#data-protection--ethics)
+- [Impact & Relevance](#impact--relevance)
+- [Technology Stack](#technology-stack)
+- [Getting Started](#getting-started)
 
-Key Challenges
-2.1 Information Silos
+---
 
-Security-related data is often isolated within individual agencies. As a result, potentially connected events—such as a police report in Garissa, a suspicious financial transaction in Nairobi, and a border alert in Mandera—remain unlinked, preventing a unified national security picture.
+## Project Overview
 
-2.2 Data Overload and Manual Analysis
+**FARSI** (Forensic Analysis Real-Time Security Intelligence Platform) is an AI-powered security intelligence system designed to modernize and strengthen Kenya's national security operations. The platform enables:
 
-Agencies are overwhelmed by large volumes of unstructured data, including:
+- **Real-time data fusion** across multiple agencies
+- **Advanced analytics** powered by machine learning
+- **Predictive intelligence** for proactive threat prevention
+- **Inter-agency collaboration** through secure data sharing
 
-Text-based reports
+---
 
-Intercepted communications
+## Problem Statement
 
-CCTV footage
+Kenya faces a complex and evolving security threat landscape, including:
+- Terrorism and cross-border crime
+- Urban violence and organized crime
+- Livestock rustling
 
-Satellite and aerial imagery
+Despite vast amounts of daily data collection by the National Police Service (NPS), National Intelligence Service (NIS), and others, critical operational gaps remain.
 
-Manual analysis of this data is slow, inefficient, and prone to human error, leading to delayed responses and missed threat patterns.
+### Key Challenges
 
-2.3 Reactive Security Posture
+#### 1. Information Silos
+Security-related data is isolated within individual agencies. Potentially connected events—such as a police report in Garissa, a suspicious financial transaction in Nairobi, and a border alert in Mandera—remain unlinked, preventing a unified national security picture.
 
-Current security operations are largely reactive, responding only after incidents occur. The absence of advanced analytical and predictive tools limits the ability to anticipate threats, prevent attacks, and optimize resource deployment.
+#### 2. Data Overload and Manual Analysis
+Agencies are overwhelmed by large volumes of unstructured data:
+- Text-based reports
+- Intercepted communications
+- CCTV footage
+- Satellite and aerial imagery
 
-Proposed Solution: FARSI
+Manual analysis is slow, inefficient, and error-prone, leading to delayed responses and missed threat patterns.
 
-FARSI is a unified, AI-driven intelligence platform designed to transform Kenya’s security operations from reactive to predictive. It breaks down data silos, automates intelligence analysis, and delivers actionable insights in real time.
+#### 3. Reactive Security Posture
+Current operations are reactive, responding only after incidents occur. The absence of advanced analytical tools limits the ability to anticipate threats and prevent attacks.
 
-The solution is built on three integrated pillars.
+---
 
-FARSI System Architecture
-Pillar 1: Secure Multi-Modal Data Fusion Hub
+## Proposed Solution
 
-FARSI provides a centralized and secure data integration platform through controlled API gateways. Authorized agencies can contribute data while retaining full ownership and control.
+FARSI transforms Kenya's security operations from **reactive to predictive** by:
+1. Breaking down data silos
+2. Automating intelligence analysis
+3. Delivering actionable insights in real time
 
-Supported Data Types
+The solution is built on **three integrated pillars**.
 
-Structured Data: Crime statistics, arrest records, vehicle registries
+---
 
-Unstructured Text: Police reports (Swahili and English), court documents, open-source intelligence (news, social media)
+## System Architecture
 
-Multimedia Data: CCTV feeds, aerial and satellite imagery, intercepted audio communications
+### Pillar 1: Secure Multi-Modal Data Fusion Hub
 
-Pillar 2: AI Intelligence Engine
+A centralized and secure data integration platform through controlled API gateways. Authorized agencies can contribute data while retaining full ownership and control.
 
-This is the analytical core of FARSI, built using explainable and specialized AI models.
+**Supported Data Types:**
+- **Structured Data:** Crime statistics, arrest records, vehicle registries
+- **Unstructured Text:** Police reports (Swahili & English), court documents, open-source intelligence
+- **Multimedia Data:** CCTV feeds, aerial/satellite imagery, intercepted audio
 
-4.2.1 Natural Language Processing (NLP) Module
+### Pillar 2: AI Intelligence Engine
 
-Trained on Swahili and English
+The analytical core of FARSI, built using explainable and specialized AI models.
 
-Performs Named Entity Recognition (NER) to identify and link:
+#### Natural Language Processing (NLP) Module
+- Trained on Swahili and English
+- **Named Entity Recognition (NER)** identifies and links:
+  - People
+  - Organizations
+  - Locations
+  - Vehicles
+- **Sentiment Analysis** detects early indicators of civil unrest, radicalization, or coordinated violence on social media
 
-People
+#### Computer Vision Module
+Real-time visual intelligence processing:
+- **Facial Recognition:** Matches suspects against authorized watchlists
+- **Object & Vehicle Recognition:** Identifies suspicious vehicles or unattended objects from CCTV
+- **Anomaly Detection:** Detects unusual crowd behavior and abnormal gatherings
 
-Organizations
+#### Predictive Analytics & Network Mapping Module
+- Uses graph neural networks to map complex criminal and terrorist networks
+- Identifies key influencers, hidden relationships, and operational vulnerabilities
+- Generates **predictive threat heatmaps** highlighting high-risk areas for:
+  - IED placements
+  - Armed raids
+  - Coordinated attacks
 
-Locations
+### Pillar 3: Secure Collaboration & Command Dashboard
 
-Vehicles
+Role-based, unified dashboard for command centers and field operatives.
 
-Conducts sentiment analysis on social media to detect early indicators of civil unrest, radicalization, or coordinated violence
+---
 
-4.2.2 Computer Vision Module
+## Key Features
 
-Processes video and image data to deliver real-time visual intelligence:
+- **Real-Time Alerts:** Automated notifications for flagged persons, vehicles, and emerging threats
+- **Interactive Threat Heatmaps:** Visual tools for intelligence-led resource deployment
+- **Secure Messaging:** Encrypted communication channels for inter-agency coordination
+- **Audit Trails:** Full logging of user actions for accountability and leak prevention
 
-Facial Recognition: Matches suspects against authorized watchlists
+---
 
-Object & Vehicle Recognition: Identifies suspicious vehicles or unattended objects from CCTV feeds
+## Data Protection & Ethics
 
-Anomaly Detection: Detects unusual crowd behavior such as sudden dispersal or abnormal gatherings
+FARSI is built with a **Privacy-by-Design** approach:
+- **Data Anonymization:** Face blurring, PII redaction
+- **Federated Learning:** AI models trained locally on agency servers without transferring raw data
+- **Data Sovereignty:** Full control and compliance with ethical standards
 
-4.2.3 Predictive Analytics & Network Mapping Module
+---
 
-Uses graph neural networks to map complex criminal and terrorist networks
+## Impact & Relevance
 
-Identifies key influencers, hidden relationships, and operational vulnerabilities
+### Security, Safety, and Policing Focus
 
-Fuses historical data with real-time feeds to generate predictive threat heatmaps, highlighting high-risk areas for:
+#### 1. Proactive Policing and Crime Prevention
+Shifts from reactive response to predictive intelligence, enabling prevention before incidents occur.
 
-IED placements
+#### 2. Enhanced Investigative Capabilities
+AI-powered network analysis uncovers hidden connections, dramatically reducing investigation time for complex crimes.
 
-Armed raids
+#### 3. Optimized Resource Deployment
+Predictive heatmaps ensure limited resources are deployed where most needed.
 
-Coordinated attacks
+#### 4. Inter-Agency Synergy
+Eliminates information silos, fostering seamless collaboration between:
+- National Police Service (NPS)
+- National Intelligence Service (NIS)
+- Kenya Wildlife Service (KWS)
+- Other national security agencies
 
-Pillar 3: Secure Collaboration & Command Dashboard
+#### 5. Safety for Officers and Citizens
+Early warnings and enhanced situational awareness reduce risk to personnel and improve citizen security.
 
-FARSI delivers intelligence through a role-based, unified dashboard for command centers and field operatives.
+---
 
-Key Features
+## Technology Stack
 
-Real-Time Alerts: Automated notifications for flagged persons, vehicles, and emerging threats
+### Frontend
+- **Vite** – Build tool
+- **React** – UI framework
+- **TypeScript** – Type safety
+- **shadcn-ui** – Component library
+- **Tailwind CSS** – Styling
 
-Interactive Threat Heatmaps: Visual tools for intelligence-led and strategic resource deployment
+### Backend & Data Engineering
+- **Python** (FastAPI / Django)
+- **PostgreSQL** – Database
+- **Elasticsearch** – Search & analytics
+- **Apache Kafka** – Event streaming
 
-Secure Messaging: Encrypted communication channels for inter-agency coordination
+### Machine Learning & AI
+- **TensorFlow** – Deep learning
+- **PyTorch** – Deep learning
+- **Hugging Face** – NLP models
+- **SpaCy** – NLP processing
+- **OpenCV** – Computer vision
+- **Neo4j** – Graph database
 
-Audit Trails: Full logging of user actions to ensure accountability and prevent intelligence leaks
+### Infrastructure & Deployment
+- **Docker** – Containerization
+- **Kubernetes** – Orchestration
+- **Government-Private Cloud** – Scalability & data sovereignty
 
-Data Protection & Ethics
+### Security
+- **TLS** – End-to-end encryption
+- **OAuth 2.0 / OpenID Connect** – Authentication
+- **Role-Based Access Control (RBAC)** – Authorization
 
-FARSI is built with a Privacy-by-Design approach:
+### Development Methodology
+- **Agile development** with iterative releases
+- **MVP focused** on predictive threat heatmapping
 
-Data anonymization (face blurring, PII redaction)
+---
 
-Optional Federated Learning, allowing AI models to be trained locally on agency servers without transferring raw data
+## Getting Started
 
-Ensures data sovereignty, security, and compliance with ethical standards
+### Development Environment
 
-Relevance to the Theme: Security, Safety, and Policing
+**Prerequisites:**
+- Node.js 16+
+- Python 3.10+
+- Docker & Docker Compose
 
-FARSI directly aligns with and advances the theme of Security, Safety, and Policing by redefining how security agencies operate.
+**Install Dependencies:**
+```bash
+bun install
+# or
+npm install
+```
 
-5.1 Proactive Policing and Crime Prevention
+**Run Development Server:**
+```bash
+npm run dev
+```
 
-By shifting from reactive response to predictive intelligence, FARSI enables agencies to prevent incidents before they occur, saving lives and property.
+**Build for Production:**
+```bash
+npm run build
+```
 
-5.2 Enhanced Investigative Capabilities
+---
 
-AI-powered network analysis uncovers hidden connections between suspects and criminal groups, dramatically reducing investigation time for complex crimes such as terrorism, trafficking, and organized crime.
+## Project Status
 
-5.3 Optimized Resource Deployment
+🚀 **Coming Soon** – Project URL and deployment details will be available soon.
 
-Predictive heatmaps ensure that limited security resources are deployed where they are most needed, improving operational efficiency and cost-effectiveness.
+---
 
-5.4 Inter-Agency Synergy
+## License & Contributing
 
-FARSI eliminates information silos by providing a secure, trusted data-sharing environment, fostering seamless collaboration between:
+This project is part of the NIRU AI Initiative. For contributions and inquiries, please reach out to the development team.
 
-NPS
+---
 
-NIS
-
-KWS
-
-Other national security agencies
-
-5.5 Safety for Officers and Citizens
-
-Early warnings and enhanced situational awareness reduce the risk to security personnel while providing citizens with a more responsive and intelligent security infrastructure.
-
-Thematic Area
-
-Security, Safety, and Policing
-
-Technology Stack & Methodology
-7.1 AI & Machine Learning
-
-TensorFlow
-
-PyTorch
-
-SpaCy
-
-Hugging Face
-
-OpenCV
-
-Neo4j
-
-7.2 Backend & Data Engineering
-
-Python (Django / FastAPI)
-
-PostgreSQL
-
-Elasticsearch
-
-Apache Kafka
-
-7.3 Infrastructure & Deployment
-
-Docker
-
-Kubernetes
-
-Government-Private Cloud deployment for scalability and data sovereignty
-
-7.4 Security
-
-End-to-end encryption (TLS)
-
-OAuth 2.0 / OpenID Connect
-
-Role-Based Access Control (RBAC)
-
-7.5 Development Methodology
-
-Agile development
-
-Initial MVP focused on predictive threat heatmapping for hackathon demonstration
-
-Project URL
-
-Coming Soon
-
-Technologies Used in This Project
-Frontend Stack
-
-Vite
-
-TypeScript
-
-React
-
-shadcn-ui
-
-Tailwind CSS
-
-Backend Stack
-Python (FastAPI / Django)
-PostgreSQL
-Kafka
-Elasticsearch
-Machine Learning & AI Stack
-TensorFlow
-PyTorch
-Hugging Face
-SpaCy
-OpenCV
-Neo4j
-Tools
-Docker
-Kubernetes
-GitHub
-GitHub Codespaces
-More components coming soon.
+**Last Updated:** January 2026
