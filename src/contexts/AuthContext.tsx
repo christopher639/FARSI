@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
-  const [isMounted, setIsMounted] = useState(true);
+  const isMountedRef = useRef(true);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -36,63 +36,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        if (isMounted) setUserRole(null);
+        if (isMountedRef.current) setUserRole(null);
         return;
       }
 
-      if (isMounted) setUserRole(data?.role as AppRole || null);
+      if (isMountedRef.current) setUserRole(data?.role as AppRole || null);
     } catch (error) {
       console.error('Error fetching user role:', error);
-      if (isMounted) setUserRole(null);
+      if (isMountedRef.current) setUserRole(null);
     }
   };
 
   const fetchAndSetRole = async (userId: string) => {
-    if (isMounted) setLoading(true);
+    if (isMountedRef.current) setLoading(true);
     await fetchUserRole(userId);
-    if (isMounted) setLoading(false);
+    if (isMountedRef.current) setLoading(false);
   };
 
   useEffect(() => {
-    setIsMounted(true);
+    let timeoutId: NodeJS.Timeout;
     
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (isMounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            // Fetch role and keep loading state true until complete
-            await fetchAndSetRole(session.user.id);
-          } else {
-            setUserRole(null);
-            setLoading(false);
-          }
-        }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (isMounted) {
+        if (!isMountedRef.current) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
           await fetchAndSetRole(session.user.id);
         } else {
+          setUserRole(null);
           setLoading(false);
         }
       }
-    }).catch((error) => {
-      console.error('Error getting session:', error);
-      if (isMounted) setLoading(false);
-    });
+    );
+
+    // Initialize auth state
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (!isMountedRef.current) return;
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          await fetchAndSetRole(currentSession.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (isMountedRef.current) setLoading(false);
+      }
+    };
+
+    initializeAuth();
+    
+    // Fallback: ensure loading stops after 10 seconds max
+    timeoutId = setTimeout(() => {
+      if (isMountedRef.current) {
+        console.warn('Auth initialization timeout - stopping loading spinner');
+        setLoading(false);
+      }
+    }, 10000);
 
     return () => {
-      setIsMounted(false);
+      isMountedRef.current = false;
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
