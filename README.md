@@ -195,6 +195,7 @@ Early warnings and enhanced situational awareness reduce risk to personnel and i
 
 ## Getting Started
 
+
 ### Development Environment
 
 **Prerequisites:**
@@ -202,11 +203,23 @@ Early warnings and enhanced situational awareness reduce risk to personnel and i
 - Python 3.10+
 - Docker & Docker Compose
 
-**Install Dependencies:**
+**Install Node/Frontend Dependencies:**
 ```bash
 bun install
 # or
 npm install
+```
+
+**Install Python/Jupyter Dependencies:**
+```bash
+python -m pip install -r requirements.txt
+```
+
+**Run Jupyter Notebook for Data Analysis:**
+```bash
+jupyter notebook
+# or
+jupyter lab
 ```
 
 **Run Development Server:**
@@ -218,6 +231,9 @@ npm run dev
 ```bash
 npm run build
 ```
+
+**Data Analysis Notebooks:**
+- See `crime_data_analysis.ipynb` for UK Police Crime Data exploration and visualization.
 
 ---
 
