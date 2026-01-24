@@ -195,14 +195,8 @@ export default function SettingsPage() {
 
       setProfile({ ...profile, theme_preference: theme });
       
-      // Apply theme with proper system detection
-      document.documentElement.classList.remove('light', 'dark');
-      if (theme === 'system') {
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.classList.add(systemPrefersDark ? 'dark' : 'light');
-      } else {
-        document.documentElement.classList.add(theme);
-      }
+      // Apply theme immediately
+      applyTheme(theme);
       
       toast.success(`Theme changed to ${theme}`);
     } catch (error: any) {
@@ -210,6 +204,23 @@ export default function SettingsPage() {
       toast.error('Failed to update theme');
     }
   };
+
+  const applyTheme = (theme: string) => {
+    document.documentElement.classList.remove('light', 'dark');
+    if (theme === 'system') {
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.add(systemPrefersDark ? 'dark' : 'light');
+    } else {
+      document.documentElement.classList.add(theme);
+    }
+  };
+
+  // Apply theme on load and when it changes
+  useEffect(() => {
+    if (profile.theme_preference) {
+      applyTheme(profile.theme_preference);
+    }
+  }, [profile.theme_preference]);
 
   const clearanceLevelLabel = (level: string) => {
     return level.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());

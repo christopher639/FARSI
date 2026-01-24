@@ -3,9 +3,13 @@ import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/useTheme";
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Apply theme on dashboard load
+  useTheme();
 
   return (
     <div className="min-h-screen bg-background">
