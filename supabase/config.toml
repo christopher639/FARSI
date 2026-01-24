@@ -25,7 +25,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-totp-secret]
-verify_jwt = true
+verify_jwt = false
 
 [functions.verify-totp]
 verify_jwt = false
