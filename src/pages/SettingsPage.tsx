@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { applyThemeImmediate } from "@/hooks/useTheme";
-import { Settings, User, Shield, Bell, Database, Key, Monitor, Globe, Loader2, Save, Camera, Moon, Sun, Smartphone } from "lucide-react";
+import { Settings, User, Shield, Bell, Database, Key, Monitor, Globe, Loader2, Save, Camera, Moon, Sun, Smartphone, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { TotpSetupDialog } from "@/components/settings/TotpSetupDialog";
+import { BiometricSetupDialog } from "@/components/settings/BiometricSetupDialog";
 
 const settingsSections = [
   { icon: User, label: "Profile", id: "profile" },
@@ -43,6 +44,8 @@ export default function SettingsPage() {
     two_factor_enabled: false,
     two_factor_method: "email" as "email" | "totp" | "both" | "none",
     totp_enabled: false,
+    biometric_enabled: false,
+    biometric_mandatory: false,
     theme_preference: "dark",
   });
 
@@ -52,6 +55,7 @@ export default function SettingsPage() {
   });
 
   const [showTotpSetup, setShowTotpSetup] = useState(false);
+  const [showBiometricSetup, setShowBiometricSetup] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -85,6 +89,8 @@ export default function SettingsPage() {
           two_factor_enabled: data.two_factor_enabled || false,
           two_factor_method: (data as any).two_factor_method || "email",
           totp_enabled: (data as any).totp_enabled || false,
+          biometric_enabled: (data as any).biometric_enabled || false,
+          biometric_mandatory: (data as any).biometric_mandatory || false,
           theme_preference: data.theme_preference || "dark",
         });
       }
@@ -257,6 +263,42 @@ export default function SettingsPage() {
     } catch (error: any) {
       console.error('Error disabling TOTP:', error);
       toast.error('Failed to disable Google Authenticator');
+    }
+  };
+
+  const handleBiometricSetupSuccess = () => {
+    setProfile({ 
+      ...profile, 
+      biometric_enabled: true,
+    });
+    fetchProfile(); // Refresh to get latest biometric settings
+  };
+
+  const handleDisableBiometric = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          biometric_enabled: false,
+          biometric_credential_id: null,
+          biometric_public_key: null,
+          biometric_mandatory: false,
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setProfile({ 
+        ...profile, 
+        biometric_enabled: false,
+        biometric_mandatory: false,
+      });
+      toast.success('Biometric authentication has been disabled');
+    } catch (error: any) {
+      console.error('Error disabling biometric:', error);
+      toast.error('Failed to disable biometric authentication');
     }
   };
 
@@ -554,6 +596,57 @@ export default function SettingsPage() {
 
                   <Separator />
 
+                  {/* Biometric Authentication */}
+                  <div className="space-y-4 p-4 bg-background/50 rounded-lg border border-panel-border">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Fingerprint className="w-6 h-6 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">Biometric Login</p>
+                        <p className="text-sm text-muted-foreground">
+                          Use Face ID, Touch ID, or Windows Hello to sign in
+                        </p>
+                      </div>
+                      {profile.biometric_enabled && (
+                        <span className="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded">
+                          Configured
+                        </span>
+                      )}
+                    </div>
+
+                    {profile.biometric_enabled && profile.biometric_mandatory && (
+                      <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <p className="text-sm text-primary font-medium">
+                          Biometric is set as your mandatory login method
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      {!profile.biometric_enabled ? (
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setShowBiometricSetup(true)}
+                          className="gap-2"
+                        >
+                          <Fingerprint className="w-4 h-4" />
+                          Set Up Biometric Login
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          onClick={handleDisableBiometric}
+                          className="gap-2 text-destructive hover:text-destructive"
+                        >
+                          Disable Biometric Login
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
                   {/* Password Change */}
                   <div className="space-y-4">
                     <h3 className="font-medium">Password</h3>
@@ -572,6 +665,13 @@ export default function SettingsPage() {
                   onOpenChange={setShowTotpSetup}
                   userId={user?.id || ""}
                   onSuccess={handleTotpSetupSuccess}
+                />
+
+                {/* Biometric Setup Dialog */}
+                <BiometricSetupDialog
+                  open={showBiometricSetup}
+                  onOpenChange={setShowBiometricSetup}
+                  onSuccess={handleBiometricSetupSuccess}
                 />
               </>
             )}
