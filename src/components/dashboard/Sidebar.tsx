@@ -72,13 +72,14 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
     <aside 
       className={cn(
         "fixed left-0 top-16 h-[calc(100vh-4rem)] bg-sidebar border-r border-sidebar-border flex flex-col z-40 transition-all duration-300 ease-in-out",
-        isOpen ? "w-64" : "w-16"
+        // Mobile: slide in/out from left, desktop: expand/collapse
+        isOpen ? "w-64 translate-x-0" : "lg:w-16 -translate-x-full lg:translate-x-0"
       )}
     >
-      {/* Toggle Button */}
+      {/* Toggle Button - hide on mobile (use header menu instead) */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-6 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground shadow-lg hover:scale-110 transition-transform z-50"
+        className="absolute -right-3 top-6 w-6 h-6 bg-primary rounded-full items-center justify-center text-primary-foreground shadow-lg hover:scale-110 transition-transform z-50 hidden lg:flex"
       >
         {isOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
       </button>

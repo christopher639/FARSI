@@ -1,4 +1,4 @@
-import { Bell, Search, Clock, LogOut, ChevronDown, Settings } from "lucide-react";
+import { Bell, Search, Clock, LogOut, ChevronDown, Settings, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -88,28 +88,36 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 border-b border-panel-border bg-card/95 backdrop-blur-sm flex items-center justify-between px-6 z-50">
+    <header className="fixed top-0 left-0 right-0 h-16 border-b border-panel-border bg-card/95 backdrop-blur-sm flex items-center justify-between px-3 sm:px-4 md:px-6 z-50">
       {/* Left Section */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
+        {/* Mobile Menu Button */}
+        <button 
+          onClick={onMenuClick}
+          className="w-10 h-10 rounded-lg bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors lg:hidden"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <img 
             src="/android-chrome-192x192.png" 
             alt="FARSI Logo" 
-            className="w-10 h-10 rounded-xl"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl"
           />
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">
+          <div className="hidden xs:block">
+            <h1 className="text-base sm:text-lg font-semibold text-foreground">
               FARSI <span className="text-primary text-glow">Command</span>
             </h1>
-            <p className="text-[10px] text-muted-foreground font-mono tracking-wide">
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground font-mono tracking-wide hidden sm:block">
               Forensic Analysis Real-Time Security Intelligence
             </p>
           </div>
         </div>
         
         {/* Status Indicators */}
-        <div className="hidden lg:flex items-center gap-4 ml-6 pl-6 border-l border-panel-border">
+        <div className="hidden xl:flex items-center gap-4 ml-6 pl-6 border-l border-panel-border">
           <StatusIndicator label="SYSTEM" status="online" />
           <StatusIndicator label="DATA FEED" status="active" />
           <StatusIndicator label="AI ENGINE" status="processing" />
