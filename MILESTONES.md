@@ -109,6 +109,11 @@ This document outlines the major milestones, tasks, deliverables, and success cr
 - Collect feedback and monitor system
 - Plan for future enhancements
 
+**security :**
+- implement @FA
+- -MFA
+- Google authentical
+
 **Deliverables:**
 - Training materials and sessions
 - Feedback reports
