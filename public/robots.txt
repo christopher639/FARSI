@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://farai-safari-guardian.lovable.app/sitemap.xml
