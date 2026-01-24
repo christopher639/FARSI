@@ -7,6 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ThreatHeatmapPage from "./pages/ThreatHeatmapPage";
 import AlertsPage from "./pages/AlertsPage";
 import NetworkAnalysisPage from "./pages/NetworkAnalysisPage";
@@ -29,8 +31,10 @@ const App = () => (
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>

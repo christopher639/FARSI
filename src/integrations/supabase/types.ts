@@ -208,6 +208,36 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token: string
+          used: boolean | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          token: string
+          used?: boolean | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -220,8 +250,11 @@ export type Database = {
           id: string
           phone: string | null
           status: Database["public"]["Enums"]["user_status"] | null
+          theme_preference: string | null
+          two_factor_enabled: boolean | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -236,8 +269,11 @@ export type Database = {
           id?: string
           phone?: string | null
           status?: Database["public"]["Enums"]["user_status"] | null
+          theme_preference?: string | null
+          two_factor_enabled?: boolean | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -252,8 +288,11 @@ export type Database = {
           id?: string
           phone?: string | null
           status?: Database["public"]["Enums"]["user_status"] | null
+          theme_preference?: string | null
+          two_factor_enabled?: boolean | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }

@@ -1,8 +1,9 @@
-import { Bell, Search, User, Clock, LogOut, ChevronDown } from "lucide-react";
+import { Bell, Search, Clock, LogOut, ChevronDown, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,13 +13,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface HeaderProps {
   onMenuClick?: () => void;
 }
 
+interface UserProfile {
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
 export function Header({ onMenuClick }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const { user, userRole, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -26,6 +35,30 @@ export function Header({ onMenuClick }: HeaderProps) {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username, full_name, avatar_url")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!error && data) {
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -39,6 +72,19 @@ export function Header({ onMenuClick }: HeaderProps) {
       case 'viewer': return 'bg-green-500/20 text-green-400 border-green-500/30';
       default: return 'bg-muted text-muted-foreground';
     }
+  };
+
+  const getDisplayName = () => {
+    if (profile?.username) return profile.username;
+    if (profile?.full_name) return profile.full_name.split(' ')[0];
+    return user?.email?.split('@')[0] || 'User';
+  };
+
+  const getInitials = () => {
+    if (profile?.full_name) {
+      return profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    return getDisplayName().slice(0, 2).toUpperCase();
   };
 
   return (
@@ -101,24 +147,43 @@ export function Header({ onMenuClick }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 hover:bg-secondary/50 rounded-lg p-2 transition-colors">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium">{user?.email?.split('@')[0] || 'User'}</p>
+                <p className="text-sm font-medium">{getDisplayName()}</p>
                 <Badge className={`text-[10px] ${getRoleBadgeColor(userRole)}`}>
                   {userRole || 'No Role'}
                 </Badge>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
-                <User className="w-5 h-5 text-primary" />
-              </div>
+              <Avatar className="w-10 h-10 border border-primary/30">
+                <AvatarImage src={profile?.avatar_url || undefined} alt={getDisplayName()} />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
               <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-card border-primary/20">
             <DropdownMenuLabel>
-              <div>
-                <p className="font-medium">{user?.email}</p>
-                <p className="text-xs text-muted-foreground capitalize">{userRole} Access</p>
+              <div className="flex items-center gap-3">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={profile?.avatar_url || undefined} alt={getDisplayName()} />
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {getInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{profile?.full_name || getDisplayName()}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{userRole} Access</p>
+                </div>
               </div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => navigate('/settings')}
+              className="cursor-pointer"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               onClick={handleSignOut}

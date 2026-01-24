@@ -18,6 +18,7 @@ const createUserSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email' }).max(255),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }).max(128),
   fullName: z.string().trim().min(2, { message: 'Name is required' }).max(100),
+  username: z.string().trim().min(3, { message: 'Username must be at least 3 characters' }).max(50).optional(),
   department: z.string().max(100).optional(),
   badgeNumber: z.string().max(50).optional(),
   phone: z.string().max(20).optional(),
@@ -29,12 +30,14 @@ type UserProfile = {
   id: string;
   user_id: string;
   full_name: string;
+  username: string | null;
   email: string;
   department: string | null;
   clearance_level: string;
   badge_number: string | null;
   phone: string | null;
   status: string;
+  avatar_url: string | null;
   created_at: string;
 };
 
@@ -57,6 +60,7 @@ export default function UsersPage() {
     email: '',
     password: '',
     fullName: '',
+    username: '',
     department: '',
     badgeNumber: '',
     phone: '',
@@ -99,6 +103,7 @@ export default function UsersPage() {
       email: '',
       password: '',
       fullName: '',
+      username: '',
       department: '',
       badgeNumber: '',
       phone: '',
@@ -233,6 +238,18 @@ export default function UsersPage() {
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                       placeholder="John Doe"
                       required
+                      className="bg-background/50 h-10"
+                    />
+                  </div>
+
+                  {/* Username */}
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                    <Input
+                      id="username"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      placeholder="johndoe"
                       className="bg-background/50 h-10"
                     />
                   </div>
