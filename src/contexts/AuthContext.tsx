@@ -1,6 +1,9 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+
+// Session persistence key
+const AUTH_INITIALIZED_KEY = 'farsi_auth_initialized';
 
 type AppRole = 'admin' | 'analyst' | 'viewer';
 
@@ -25,6 +28,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const isMountedRef = useRef(true);
+  const isInitializedRef = useRef(false);
+  const lastActivityRef = useRef(Date.now());
+  
+  // Inactivity timeout (30 minutes)
+  const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 
   const withTimeout = async <T,>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> => {
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
@@ -72,34 +80,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (isMountedRef.current) setLoading(false);
   };
 
+  // Update activity timestamp on user interactions
+  const updateActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
+
+  // Check for inactivity and sign out if needed
+  const checkInactivity = useCallback(async () => {
+    if (!session) return;
+    
+    const timeSinceActivity = Date.now() - lastActivityRef.current;
+    if (timeSinceActivity > INACTIVITY_TIMEOUT) {
+      console.log('User inactive for too long, signing out...');
+      await signOut();
+    }
+  }, [session]);
+
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    let initComplete = false;
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event, newSession) => {
         if (!isMountedRef.current) return;
         
         // Clear any pending timeout since we got a real auth state
         if (timeoutId) clearTimeout(timeoutId);
         
-        setSession(session);
-        setUser(session?.user ?? null);
+        // Skip re-initialization if we already have a valid session and this is just a token refresh
+        if (isInitializedRef.current && event === 'TOKEN_REFRESHED' && session?.user?.id === newSession?.user?.id) {
+          setSession(newSession);
+          return;
+        }
         
-        if (session?.user) {
-          await fetchAndSetRole(session.user.id);
+        // Skip if this is a visibility change and we already have a session
+        if (isInitializedRef.current && session && newSession && session.user?.id === newSession.user?.id) {
+          setSession(newSession);
+          return;
+        }
+        
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        
+        if (newSession?.user) {
+          // Only fetch role if we don't have it or user changed
+          if (!userRole || user?.id !== newSession.user.id) {
+            await fetchAndSetRole(newSession.user.id);
+          } else {
+            if (isMountedRef.current) setLoading(false);
+          }
         } else {
           setUserRole(null);
           if (isMountedRef.current) setLoading(false);
         }
         
-        initComplete = true;
+        isInitializedRef.current = true;
       }
     );
 
     // Initialize auth state with shorter timeout
     const initializeAuth = async () => {
+      // Skip if already initialized
+      if (isInitializedRef.current) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         const { data: { session: currentSession }, error } = await withTimeout(
           supabase.auth.getSession(),
@@ -112,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.error('Error getting session:', error);
           setLoading(false);
+          isInitializedRef.current = true;
           return;
         }
 
@@ -124,10 +171,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
         
-        initComplete = true;
+        isInitializedRef.current = true;
       } catch (error) {
-        // If session retrieval hangs (often due to preview tooling / CSP / CORS),
-        // we still want the app to render the login page quickly.
         const err = error as Error;
         if (err?.message === 'GET_SESSION_TIMEOUT') {
           console.warn('Auth initialization timeout - proceeding without session');
@@ -135,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Auth initialization error:', error);
         }
         if (isMountedRef.current) setLoading(false);
+        isInitializedRef.current = true;
       }
     };
 
@@ -142,9 +188,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Fallback: ensure loading stops after 3 seconds max
     timeoutId = setTimeout(() => {
-      if (isMountedRef.current && !initComplete) {
+      if (isMountedRef.current && !isInitializedRef.current) {
         console.warn('Auth initialization timeout - stopping loading spinner');
         setLoading(false);
+        isInitializedRef.current = true;
       }
     }, 3000);
 
@@ -154,6 +201,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Set up activity tracking and inactivity check
+  useEffect(() => {
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(event => window.addEventListener(event, updateActivity));
+    
+    // Check inactivity every minute
+    const inactivityInterval = setInterval(checkInactivity, 60 * 1000);
+    
+    return () => {
+      events.forEach(event => window.removeEventListener(event, updateActivity));
+      clearInterval(inactivityInterval);
+    };
+  }, [updateActivity, checkInactivity]);
+
+  // Handle visibility change - don't re-trigger auth on tab focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Just update activity, don't re-auth
+        updateActivity();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [updateActivity]);
 
   const signIn = async (email: string, password: string) => {
     // IMPORTANT:
@@ -203,10 +277,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    isInitializedRef.current = false;
     await supabase.auth.signOut();
     setUserRole(null);
-  };
+    setUser(null);
+    setSession(null);
+  }, []);
 
   const value = {
     user,
