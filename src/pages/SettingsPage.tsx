@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { applyThemeImmediate } from "@/hooks/useTheme";
 import { Settings, User, Shield, Bell, Database, Key, Monitor, Globe, Loader2, Save, Camera, Moon, Sun, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,6 +186,10 @@ export default function SettingsPage() {
   const handleThemeChange = async (theme: string) => {
     if (!user) return;
 
+    // Apply theme immediately to prevent flash
+    applyThemeImmediate(theme);
+    setProfile({ ...profile, theme_preference: theme });
+
     try {
       const { error } = await supabase
         .from('profiles')
@@ -192,11 +197,6 @@ export default function SettingsPage() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-
-      setProfile({ ...profile, theme_preference: theme });
-      
-      // Apply theme immediately
-      applyTheme(theme);
       
       toast.success(`Theme changed to ${theme}`);
     } catch (error: any) {
@@ -204,23 +204,6 @@ export default function SettingsPage() {
       toast.error('Failed to update theme');
     }
   };
-
-  const applyTheme = (theme: string) => {
-    document.documentElement.classList.remove('light', 'dark');
-    if (theme === 'system') {
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.add(systemPrefersDark ? 'dark' : 'light');
-    } else {
-      document.documentElement.classList.add(theme);
-    }
-  };
-
-  // Apply theme on load and when it changes
-  useEffect(() => {
-    if (profile.theme_preference) {
-      applyTheme(profile.theme_preference);
-    }
-  }, [profile.theme_preference]);
 
   const clearanceLevelLabel = (level: string) => {
     return level.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
