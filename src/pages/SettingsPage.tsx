@@ -41,7 +41,7 @@ export default function SettingsPage() {
     badge_number: "",
     avatar_url: "",
     two_factor_enabled: false,
-    two_factor_method: "email" as "email" | "totp" | "none",
+    two_factor_method: "email" as "email" | "totp" | "both" | "none",
     totp_enabled: false,
     theme_preference: "dark",
   });
@@ -194,10 +194,10 @@ export default function SettingsPage() {
     }
   };
 
-  const handle2FAMethodChange = async (method: "email" | "totp") => {
+  const handle2FAMethodChange = async (method: "email" | "totp" | "both") => {
     if (!user) return;
 
-    if (method === 'totp' && !profile.totp_enabled) {
+    if ((method === 'totp' || method === 'both') && !profile.totp_enabled) {
       // Need to set up TOTP first
       setShowTotpSetup(true);
       return;
@@ -212,7 +212,12 @@ export default function SettingsPage() {
       if (error) throw error;
 
       setProfile({ ...profile, two_factor_method: method });
-      toast.success(`2FA method changed to ${method === 'totp' ? 'Google Authenticator' : 'Email OTP'}`);
+      const methodLabels = {
+        email: 'Email OTP',
+        totp: 'Google Authenticator',
+        both: 'Both (3-Factor Authentication)'
+      };
+      toast.success(`2FA method changed to ${methodLabels[method]}`);
     } catch (error: any) {
       console.error('Error updating 2FA method:', error);
       toast.error('Failed to update 2FA method');
@@ -475,7 +480,7 @@ export default function SettingsPage() {
                       <h3 className="font-medium">Authentication Method</h3>
                       <RadioGroup 
                         value={profile.two_factor_method} 
-                        onValueChange={(v) => handle2FAMethodChange(v as "email" | "totp")}
+                        onValueChange={(v) => handle2FAMethodChange(v as "email" | "totp" | "both")}
                         className="space-y-3"
                       >
                         <div className="flex items-center space-x-3 p-3 rounded-lg border border-panel-border hover:bg-muted/50 transition-colors">
@@ -501,6 +506,23 @@ export default function SettingsPage() {
                             </div>
                             <div className="text-sm text-muted-foreground">
                               Use a time-based code from your authenticator app
+                            </div>
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-3 p-3 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors">
+                          <RadioGroupItem value="both" id="both" />
+                          <Label htmlFor="both" className="flex-1 cursor-pointer">
+                            <div className="font-medium flex items-center gap-2">
+                              <Shield className="w-4 h-4 text-primary" />
+                              Both (3-Factor Authentication)
+                              {profile.totp_enabled && (
+                                <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
+                                  Maximum Security
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Email OTP + Authenticator App for highest security
                             </div>
                           </Label>
                         </div>
