@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSurveillanceLogs } from "@/hooks/useSurveillanceLogs";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, Video, Camera, MapPin, Clock, Plus, Loader2 } from "lucide-react";
+import { Eye, Video, Camera, MapPin, Clock, Plus, Loader2, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { z } from "zod";
@@ -38,11 +39,23 @@ const statusColors = {
   offline: "bg-destructive/20 text-destructive border-destructive/30",
 };
 
+const eventTypeOptions = [
+  { value: "motion_detected", label: "Motion Detected" },
+  { value: "facial_recognition", label: "Facial Recognition" },
+  { value: "vehicle_identified", label: "Vehicle Identified" },
+  { value: "perimeter_breach", label: "Perimeter Breach" },
+  { value: "suspicious_activity", label: "Suspicious Activity" },
+  { value: "crowd_gathering", label: "Crowd Gathering" },
+  { value: "other", label: "Other" },
+];
+
 export default function SurveillancePage() {
   const { logs, loading, refetch } = useSurveillanceLogs();
   const { user, isAdmin } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingLog, setEditingLog] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"cameras" | "logs">("cameras");
 
   const [formData, setFormData] = useState({
@@ -51,6 +64,15 @@ export default function SurveillancePage() {
     location: "",
     event_description: "",
   });
+
+  const resetForm = () => {
+    setFormData({
+      event_type: "",
+      subject: "",
+      location: "",
+      event_description: "",
+    });
+  };
 
   const handleCreateLog = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,12 +102,7 @@ export default function SurveillancePage() {
 
       toast.success("Surveillance log created");
       setIsCreateDialogOpen(false);
-      setFormData({
-        event_type: "",
-        subject: "",
-        location: "",
-        event_description: "",
-      });
+      resetForm();
       refetch();
     } catch (error: any) {
       console.error("Error creating log:", error);
@@ -94,6 +111,138 @@ export default function SurveillancePage() {
       setCreating(false);
     }
   };
+
+  const handleUpdateLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLog) return;
+    
+    const validation = surveillanceSchema.safeParse(formData);
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { error } = await supabase
+        .from("surveillance_logs")
+        .update({
+          event_type: formData.event_type,
+          subject: formData.subject || null,
+          location: formData.location || null,
+          event_description: formData.event_description || null,
+        })
+        .eq("id", editingLog.id);
+
+      if (error) throw error;
+
+      toast.success("Surveillance log updated");
+      setIsEditDialogOpen(false);
+      setEditingLog(null);
+      resetForm();
+      refetch();
+    } catch (error: any) {
+      console.error("Error updating log:", error);
+      toast.error(error.message || "Failed to update log");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("surveillance_logs")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      toast.success("Surveillance log deleted");
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete log");
+    }
+  };
+
+  const openEditDialog = (log: any) => {
+    setEditingLog(log);
+    setFormData({
+      event_type: log.event_type,
+      subject: log.subject || "",
+      location: log.location || "",
+      event_description: log.event_description || "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const LogForm = ({ onSubmit, isEdit = false }: { onSubmit: (e: React.FormEvent) => void; isEdit?: boolean }) => (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="event_type">Event Type *</Label>
+        <Select
+          value={formData.event_type}
+          onValueChange={(value) => setFormData({ ...formData, event_type: value })}
+        >
+          <SelectTrigger className="bg-background/50">
+            <SelectValue placeholder="Select event type" />
+          </SelectTrigger>
+          <SelectContent>
+            {eventTypeOptions.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="subject">Subject</Label>
+          <Input
+            id="subject"
+            value={formData.subject}
+            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            placeholder="Person, vehicle, etc."
+            className="bg-background/50"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="location">Location</Label>
+          <Input
+            id="location"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            placeholder="Camera ID or location"
+            className="bg-background/50"
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="event_description">Description</Label>
+        <Textarea
+          id="event_description"
+          value={formData.event_description}
+          onChange={(e) => setFormData({ ...formData, event_description: e.target.value })}
+          placeholder="Detailed description of the surveillance event..."
+          rows={4}
+          className="bg-background/50"
+        />
+      </div>
+      <Button type="submit" className="w-full" disabled={creating}>
+        {creating ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            {isEdit ? "Updating..." : "Creating..."}
+          </>
+        ) : (
+          <>
+            <Plus className="w-4 h-4 mr-2" />
+            {isEdit ? "Update Event" : "Log Event"}
+          </>
+        )}
+      </Button>
+    </form>
+  );
 
   return (
     <div className="space-y-6">
@@ -108,7 +257,10 @@ export default function SurveillancePage() {
             {cameras.filter(c => c.status === 'active').length} Active
           </Badge>
           {isAdmin && (
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+              setIsCreateDialogOpen(open);
+              if (!open) resetForm();
+            }}>
               <DialogTrigger asChild>
                 <Button size="sm" className="bg-primary hover:bg-primary/90">
                   <Plus className="w-4 h-4 mr-2" />
@@ -123,80 +275,34 @@ export default function SurveillancePage() {
                   </DialogTitle>
                 </DialogHeader>
                 <ScrollArea className="max-h-[calc(90vh-120px)] px-4 pb-4 sm:px-6 sm:pb-6">
-                  <form onSubmit={handleCreateLog} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="event_type">Event Type *</Label>
-                      <Select
-                        value={formData.event_type}
-                        onValueChange={(value) => setFormData({ ...formData, event_type: value })}
-                      >
-                        <SelectTrigger className="bg-background/50">
-                          <SelectValue placeholder="Select event type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="motion_detected">Motion Detected</SelectItem>
-                          <SelectItem value="facial_recognition">Facial Recognition</SelectItem>
-                          <SelectItem value="vehicle_identified">Vehicle Identified</SelectItem>
-                          <SelectItem value="perimeter_breach">Perimeter Breach</SelectItem>
-                          <SelectItem value="suspicious_activity">Suspicious Activity</SelectItem>
-                          <SelectItem value="crowd_gathering">Crowd Gathering</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="subject">Subject</Label>
-                        <Input
-                          id="subject"
-                          value={formData.subject}
-                          onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                          placeholder="Person, vehicle, etc."
-                          className="bg-background/50"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="location">Location</Label>
-                        <Input
-                          id="location"
-                          value={formData.location}
-                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                          placeholder="Camera ID or location"
-                          className="bg-background/50"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="event_description">Description</Label>
-                      <Textarea
-                        id="event_description"
-                        value={formData.event_description}
-                        onChange={(e) => setFormData({ ...formData, event_description: e.target.value })}
-                        placeholder="Detailed description of the surveillance event..."
-                        rows={4}
-                        className="bg-background/50"
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={creating}>
-                      {creating ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Log Event
-                        </>
-                      )}
-                    </Button>
-                  </form>
+                  <LogForm onSubmit={handleCreateLog} />
                 </ScrollArea>
               </DialogContent>
             </Dialog>
           )}
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open);
+        if (!open) {
+          setEditingLog(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] p-0 bg-card border-primary/20 overflow-hidden">
+          <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-primary" />
+              Edit Surveillance Event
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[calc(90vh-120px)] px-4 pb-4 sm:px-6 sm:pb-6">
+            <LogForm onSubmit={handleUpdateLog} isEdit />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-panel-border pb-2">
@@ -310,6 +416,42 @@ export default function SurveillancePage() {
                       <p className="text-sm text-muted-foreground/80 mt-2">{log.event_description}</p>
                     )}
                   </div>
+                  {isAdmin && (
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEditDialog(log)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Surveillance Log</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this surveillance log? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => handleDeleteLog(log.id)}
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
