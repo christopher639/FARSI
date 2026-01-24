@@ -74,11 +74,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
+    let initComplete = false;
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!isMountedRef.current) return;
+        
+        // Clear any pending timeout since we got a real auth state
+        if (timeoutId) clearTimeout(timeoutId);
         
         setSession(session);
         setUser(session?.user ?? null);
@@ -87,8 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await fetchAndSetRole(session.user.id);
         } else {
           setUserRole(null);
-          setLoading(false);
+          if (isMountedRef.current) setLoading(false);
         }
+        
+        initComplete = true;
       }
     );
 
@@ -117,6 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setLoading(false);
         }
+        
+        initComplete = true;
       } catch (error) {
         // If session retrieval hangs (often due to preview tooling / CSP / CORS),
         // we still want the app to render the login page quickly.
@@ -134,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Fallback: ensure loading stops after 3 seconds max
     timeoutId = setTimeout(() => {
-      if (isMountedRef.current && loading) {
+      if (isMountedRef.current && !initComplete) {
         console.warn('Auth initialization timeout - stopping loading spinner');
         setLoading(false);
       }

@@ -64,6 +64,64 @@
     --sidebar-border: 217 33% 15%;
     --sidebar-ring: 187 85% 53%;
   }
+
+  /* Light Mode Theme */
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 98%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - Darker cyan for light mode */
+    --primary: 187 85% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 93%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 45%;
+
+    --accent: 187 85% 30%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Alert Colors */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 187 85% 35%;
+
+    /* Custom FARSI tokens */
+    --glow-primary: 187 85% 35%;
+    --glow-warning: 38 92% 50%;
+    --glow-danger: 0 72% 51%;
+    --glow-success: 142 76% 36%;
+
+    --grid-color: 214 32% 85%;
+    --panel-border: 214 32% 87%;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222 47% 30%;
+    --sidebar-primary: 187 85% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 93%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 187 85% 35%;
+  }
 }
 
 @layer base {
