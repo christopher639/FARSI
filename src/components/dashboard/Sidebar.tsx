@@ -59,9 +59,10 @@ const statusColors = {
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
+  onClose?: () => void;
 }
 
-export function Sidebar({ isOpen, onToggle }: SidebarProps) {
+export function Sidebar({ isOpen, onToggle, onClose }: SidebarProps) {
   const location = useLocation();
   const { isAdmin } = useAuth();
 
@@ -93,6 +94,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               {...item} 
               isOpen={isOpen} 
               isActive={location.pathname === item.path}
+              onNavigate={onClose}
             />
           ))}
         </div>
@@ -131,16 +133,18 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           path="/settings"
           isOpen={isOpen} 
           isActive={location.pathname === "/settings"}
+          onNavigate={onClose}
         />
       </div>
     </aside>
   );
 }
 
-function NavButton({ icon: Icon, label, path, badge, isOpen, isActive }: NavItem & { isOpen: boolean; isActive: boolean }) {
+function NavButton({ icon: Icon, label, path, badge, isOpen, isActive, onNavigate }: NavItem & { isOpen: boolean; isActive: boolean; onNavigate?: () => void }) {
   return (
     <NavLink
       to={path}
+      onClick={onNavigate}
       className={cn(
         "w-full flex items-center gap-3 rounded-lg transition-all duration-200 group relative",
         isOpen ? "px-3 py-2.5" : "px-0 py-2.5 justify-center",

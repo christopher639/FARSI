@@ -409,61 +409,61 @@ export default function UsersPage() {
                 <TabsContent value="create" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
                   <ScrollArea className="h-[calc(85vh-140px)] px-4 sm:px-6">
                     <form onSubmit={handleCreateUser} className="space-y-4 pb-6">
-                      {/* Full Name */}
-                      <div className="space-y-2">
-                        <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
-                        <Input
-                          id="fullName"
-                          value={formData.fullName}
-                          onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                          placeholder="John Doe"
-                          required
-                          className="bg-background/50 h-10"
-                        />
-                      </div>
-
-                      {/* Username */}
-                      <div className="space-y-2">
-                        <Label htmlFor="username" className="text-sm font-medium">Username</Label>
-                        <Input
-                          id="username"
-                          value={formData.username}
-                          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                          placeholder="johndoe"
-                          className="bg-background/50 h-10"
-                        />
-                      </div>
-                      
-                      {/* Email */}
-                      <div className="space-y-2">
-                        <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          placeholder="agent@farsi.gov"
-                          required
-                          className="bg-background/50 h-10"
-                        />
+                      {/* Row 1: Full Name & Username */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
+                          <Input
+                            id="fullName"
+                            value={formData.fullName}
+                            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                            placeholder="John Doe"
+                            required
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                          <Input
+                            id="username"
+                            value={formData.username}
+                            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                            placeholder="johndoe"
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
                       </div>
                       
-                      {/* Password */}
-                      <div className="space-y-2">
-                        <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          placeholder="••••••••"
-                          required
-                          className="bg-background/50 h-10"
-                        />
+                      {/* Row 2: Email & Password */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="agent@farsi.gov"
+                            required
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            placeholder="••••••••"
+                            required
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
                       </div>
                       
-                      {/* Department & Badge - 2 column on larger screens */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Row 3: Department & Badge Number */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="department" className="text-sm font-medium">Department</Label>
                           <Input
@@ -486,8 +486,8 @@ export default function UsersPage() {
                         </div>
                       </div>
                       
-                      {/* Phone & Clearance - 2 column on larger screens */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Row 4: Phone, Clearance & Role */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
                           <Input
@@ -515,28 +515,27 @@ export default function UsersPage() {
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="role" className="text-sm font-medium">Role *</Label>
+                          <Select
+                            value={formData.role}
+                            onValueChange={(value: any) => setFormData({ ...formData, role: value })}
+                          >
+                            <SelectTrigger className="bg-background/50 h-10">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                              <SelectItem value="analyst">Analyst</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       
-                      {/* Role */}
-                      <div className="space-y-2">
-                        <Label htmlFor="role" className="text-sm font-medium">Role *</Label>
-                        <Select
-                          value={formData.role}
-                          onValueChange={(value: any) => setFormData({ ...formData, role: value })}
-                        >
-                          <SelectTrigger className="bg-background/50 h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                            <SelectItem value="analyst">Analyst</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Admin: Full access • Analyst: Create & edit data • Viewer: Read-only access
-                        </p>
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Admin: Full access • Analyst: Create & edit data • Viewer: Read-only access
+                      </p>
 
                       {/* Submit Button */}
                       <div className="pt-2">
@@ -569,37 +568,40 @@ export default function UsersPage() {
                         Send an invitation email. The user will set up their own password and profile details.
                       </p>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="inviteEmail">Email *</Label>
-                        <Input
-                          id="inviteEmail"
-                          type="email"
-                          value={inviteData.email}
-                          onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
-                          placeholder="user@example.com"
-                          required
-                          className="bg-background/50 h-10"
-                        />
+                      {/* Row 1: Email & Role */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="inviteEmail">Email *</Label>
+                          <Input
+                            id="inviteEmail"
+                            type="email"
+                            value={inviteData.email}
+                            onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                            placeholder="user@example.com"
+                            required
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Role *</Label>
+                          <Select
+                            value={inviteData.role}
+                            onValueChange={(value: any) => setInviteData({ ...inviteData, role: value })}
+                          >
+                            <SelectTrigger className="bg-background/50 h-10">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                              <SelectItem value="analyst">Analyst</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label>Role *</Label>
-                        <Select
-                          value={inviteData.role}
-                          onValueChange={(value: any) => setInviteData({ ...inviteData, role: value })}
-                        >
-                          <SelectTrigger className="bg-background/50 h-10">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                            <SelectItem value="analyst">Analyst</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Row 2: Clearance & Department */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Clearance Level</Label>
                           <Select
