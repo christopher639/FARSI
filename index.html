@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,7 +7,7 @@
     <title>FARSI - Forensic Analysis Real-Time Security Intelligence</title>
     <meta name="description" content="FARSI: Advanced Forensic Analysis and Real-Time Security Intelligence Platform" />
     <meta name="author" content="Bundi Christopher" />
-    <meta name="theme-color" content="#1a1a2e" />
+    <meta name="theme-color" content="#f8fafc" />
     
     <!-- Security Headers -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -23,6 +23,25 @@
     <meta property="og:description" content="Forensic Analysis and Real-Time Security Intelligence Platform" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://farsi.dev" />
+    
+    <!-- Theme initialization script - runs before React to prevent flash -->
+    <script>
+      (function() {
+        var theme = localStorage.getItem('farsi_theme_preference');
+        var root = document.documentElement;
+        root.classList.remove('light', 'dark');
+        if (theme === 'dark') {
+          root.classList.add('dark');
+          document.querySelector('meta[name="theme-color"]').content = '#0a0f1a';
+        } else if (theme === 'system') {
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          root.classList.add(prefersDark ? 'dark' : 'light');
+          document.querySelector('meta[name="theme-color"]').content = prefersDark ? '#0a0f1a' : '#f8fafc';
+        } else {
+          root.classList.add('light');
+        }
+      })();
+    </script>
   </head>
 
   <body>
