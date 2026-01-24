@@ -154,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Also don't fetch role here; onAuthStateChange already handles role fetch.
     if (isMountedRef.current) setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       if (isMountedRef.current) {
@@ -164,6 +164,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
       return { error };
+    }
+
+    // Send login alert email (fire and forget - don't block login)
+    if (data?.user) {
+      supabase.functions.invoke('send-login-alert', {
+        body: {
+          userId: data.user.id,
+          email: data.user.email,
+          userAgent: navigator.userAgent,
+        },
+      }).catch(err => console.error('Login alert error:', err));
     }
 
     // Auth state + role will be resolved by the onAuthStateChange listener.

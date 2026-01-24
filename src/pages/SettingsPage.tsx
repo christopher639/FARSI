@@ -195,9 +195,12 @@ export default function SettingsPage() {
 
       setProfile({ ...profile, theme_preference: theme });
       
-      // Apply theme
+      // Apply theme with proper system detection
       document.documentElement.classList.remove('light', 'dark');
-      if (theme !== 'system') {
+      if (theme === 'system') {
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.add(systemPrefersDark ? 'dark' : 'light');
+      } else {
         document.documentElement.classList.add(theme);
       }
       

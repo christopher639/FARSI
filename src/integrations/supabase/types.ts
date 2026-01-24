@@ -136,6 +136,39 @@ export type Database = {
         }
         Relationships: []
       }
+      login_sessions: {
+        Row: {
+          created_at: string
+          device_fingerprint: string | null
+          id: string
+          ip_address: string | null
+          is_new_device: boolean | null
+          location: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_fingerprint?: string | null
+          id?: string
+          ip_address?: string | null
+          is_new_device?: boolean | null
+          location?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_fingerprint?: string | null
+          id?: string
+          ip_address?: string | null
+          is_new_device?: boolean | null
+          location?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       network_analysis_data: {
         Row: {
           bytes_transferred: number | null
@@ -379,6 +412,45 @@ export type Database = {
           status?: Database["public"]["Enums"]["alert_status"] | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_invitations: {
+        Row: {
+          accepted_at: string | null
+          clearance_level: Database["public"]["Enums"]["clearance_level"]
+          created_at: string
+          department: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          clearance_level?: Database["public"]["Enums"]["clearance_level"]
+          created_at?: string
+          department?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          clearance_level?: Database["public"]["Enums"]["clearance_level"]
+          created_at?: string
+          department?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
         }
         Relationships: []
       }
