@@ -26,13 +26,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<AppRole | null>(null);
   const isMountedRef = useRef(true);
 
+  const withTimeout = async <T,>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> => {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timeoutHandle = setTimeout(() => reject(new Error(`${label}_TIMEOUT`)), ms);
+    });
+
+    try {
+      return await Promise.race([Promise.resolve(promise), timeoutPromise]);
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }
+  };
+
   const fetchUserRole = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const roleQuery = supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .single();
+
+      const { data, error } = await withTimeout(
+        roleQuery,
+        2500,
+        'FETCH_ROLE'
+      );
 
       if (error) {
         console.error('Error fetching user role:', error);
@@ -76,13 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize auth state with shorter timeout
     const initializeAuth = async () => {
       try {
-        // Use AbortController for timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-        
-        clearTimeout(timeoutId);
+        const { data: { session: currentSession }, error } = await withTimeout(
+          supabase.auth.getSession(),
+          2500,
+          'GET_SESSION'
+        );
         
         if (!isMountedRef.current) return;
         
@@ -101,7 +118,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        // If session retrieval hangs (often due to preview tooling / CSP / CORS),
+        // we still want the app to render the login page quickly.
+        const err = error as Error;
+        if (err?.message === 'GET_SESSION_TIMEOUT') {
+          console.warn('Auth initialization timeout - proceeding without session');
+        } else {
+          console.error('Auth initialization error:', error);
+        }
         if (isMountedRef.current) setLoading(false);
       }
     };
