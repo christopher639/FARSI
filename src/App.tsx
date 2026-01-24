@@ -19,6 +19,7 @@ import CommunicationsPage from "./pages/CommunicationsPage";
 import DataFusionPage from "./pages/DataFusionPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
+import SystemSettingsPage from "./pages/SystemSettingsPage";
 import NotFound from "./pages/NotFound";
 import { DashboardLayout } from "./components/dashboard/DashboardLayout";
 
@@ -51,6 +52,7 @@ const App = () => (
                 <Route path="/data-fusion" element={<DataFusionPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/users" element={<UsersPage />} />
+                <Route path="/system-settings" element={<SystemSettingsPage />} />
               </Route>
             </Route>
             

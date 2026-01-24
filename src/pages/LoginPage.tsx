@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -6,17 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, Eye, EyeOff, Lock, Mail, KeyRound, ArrowLeft } from 'lucide-react';
+import { Shield, Eye, EyeOff, Lock, Mail, KeyRound, ArrowLeft, Smartphone } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email address' }).max(255),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }).max(128),
 });
 
-type LoginStep = 'credentials' | 'otp';
+type LoginStep = 'credentials' | 'otp' | 'totp' | '2fa-setup-required';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -26,9 +27,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<LoginStep>('credentials');
   const [otpCode, setOtpCode] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const { settings } = useSystemSettings();
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,11 +63,11 @@ export default function LoginPage() {
       return;
     }
 
-    // Check if user has 2FA enabled
+    // Check user's 2FA settings
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('two_factor_enabled')
+        .select('two_factor_enabled, totp_enabled')
         .eq('user_id', data.user.id)
         .single();
 
@@ -73,6 +76,19 @@ export default function LoginPage() {
       }
 
       const has2FAEnabled = profileData?.two_factor_enabled === true;
+      const hasTotpEnabled = (profileData as any)?.totp_enabled === true;
+      const twoFactorMethod = (profileData as any)?.two_factor_method || 'email';
+      const mandatory2FA = settings.security_2fa_enforcement?.mandatory;
+      const mandatoryMethod = settings.security_2fa_enforcement?.method;
+
+      // Check if mandatory 2FA is required but not set up
+      if (mandatory2FA && !has2FAEnabled) {
+        await supabase.auth.signOut();
+        setPendingUserId(data.user.id);
+        setStep('2fa-setup-required');
+        setLoading(false);
+        return;
+      }
 
       if (!has2FAEnabled) {
         // 2FA is off - complete login directly
@@ -81,26 +97,32 @@ export default function LoginPage() {
         return;
       }
 
-      // 2FA is enabled - sign out and require OTP verification
+      // 2FA is enabled - sign out and require verification
       await supabase.auth.signOut();
-
-      // Send OTP to user's email
-      const response = await supabase.functions.invoke('send-otp', {
-        body: { email, userId: data.user.id },
-      });
-
-      if (response.error) {
-        setLoading(false);
-        setError('Failed to send verification code. Please try again.');
-        return;
-      }
-
       setPendingUserId(data.user.id);
-      setStep('otp');
-      setLoading(false);
+
+      // Determine which 2FA method to use
+      if (twoFactorMethod === 'totp' && hasTotpEnabled) {
+        setStep('totp');
+        setLoading(false);
+      } else {
+        // Send OTP to user's email
+        const response = await supabase.functions.invoke('send-otp', {
+          body: { email, userId: data.user.id },
+        });
+
+        if (response.error) {
+          setLoading(false);
+          setError('Failed to send verification code. Please try again.');
+          return;
+        }
+
+        setStep('otp');
+        setLoading(false);
+      }
     } catch (err) {
       setLoading(false);
-      setError('Failed to send verification code. Please try again.');
+      setError('Failed to process authentication. Please try again.');
     }
   };
 
@@ -142,9 +164,48 @@ export default function LoginPage() {
     }
   };
 
+  const handleTotpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (totpCode.length !== 6) {
+      setError('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Verify TOTP
+      const response = await supabase.functions.invoke('verify-totp', {
+        body: { userId: pendingUserId, code: totpCode },
+      });
+
+      if (response.error || !response.data?.verified) {
+        setLoading(false);
+        setError('Invalid authenticator code. Please try again.');
+        return;
+      }
+
+      // TOTP verified - now complete the actual sign in
+      const { error: finalSignInError } = await signIn(email, password);
+      setLoading(false);
+
+      if (finalSignInError) {
+        setError(finalSignInError.message);
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      setLoading(false);
+      setError('Verification failed. Please try again.');
+    }
+  };
+
   const handleBackToCredentials = () => {
     setStep('credentials');
     setOtpCode('');
+    setTotpCode('');
     setError(null);
     setPendingUserId(null);
   };
@@ -196,15 +257,16 @@ export default function LoginPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-glow">FARSI Platform</CardTitle>
             <CardDescription className="text-muted-foreground mt-2">
-              {step === 'credentials' 
-                ? 'Forensic Analysis Real-Time Security Intelligence'
-                : 'Two-Factor Authentication Required'}
+              {step === 'credentials' && 'Forensic Analysis Real-Time Security Intelligence'}
+              {step === 'otp' && 'Email Verification Required'}
+              {step === 'totp' && 'Authenticator Verification Required'}
+              {step === '2fa-setup-required' && 'Two-Factor Authentication Required'}
             </CardDescription>
           </div>
         </CardHeader>
         
         <CardContent>
-          {step === 'credentials' ? (
+          {step === 'credentials' && (
             <form onSubmit={handleCredentialsSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
@@ -282,7 +344,9 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-          ) : (
+          )}
+
+          {step === 'otp' && (
             <form onSubmit={handleOtpSubmit} className="space-y-6">
               {error && (
                 <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
@@ -354,6 +418,104 @@ export default function LoginPage() {
                 </button>
               </div>
             </form>
+          )}
+
+          {step === 'totp' && (
+            <form onSubmit={handleTotpSubmit} className="space-y-6">
+              {error && (
+                <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
+                  <Smartphone className="w-8 h-8 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Enter the 6-digit code from your
+                </p>
+                <p className="text-sm font-medium text-foreground">Google Authenticator app</p>
+              </div>
+              
+              <div className="flex justify-center">
+                <InputOTP
+                  value={totpCode}
+                  onChange={setTotpCode}
+                  maxLength={6}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                disabled={loading || totpCode.length !== 6}
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Verifying...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Verify & Login
+                  </div>
+                )}
+              </Button>
+
+              <div className="flex items-center justify-start text-sm">
+                <button
+                  type="button"
+                  onClick={handleBackToCredentials}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === '2fa-setup-required' && (
+            <div className="space-y-6">
+              <Alert className="bg-amber-500/10 border-amber-500/30">
+                <AlertDescription className="text-amber-600 dark:text-amber-400">
+                  Your organization requires two-factor authentication. Please set up 2FA in your account settings to continue.
+                </AlertDescription>
+              </Alert>
+
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/10 mb-2">
+                  <Shield className="w-8 h-8 text-amber-500" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Two-factor authentication is mandatory for all users.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Please contact your administrator or try logging in again after setting up 2FA.
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleBackToCredentials}
+                className="w-full"
+                variant="outline"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Login
+              </Button>
+            </div>
           )}
           
           <div className="mt-6 pt-4 border-t border-border/50">
