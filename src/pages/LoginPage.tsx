@@ -60,11 +60,31 @@ export default function LoginPage() {
       return;
     }
 
-    // Sign out immediately - we need OTP verification first
-    await supabase.auth.signOut();
-
-    // Send OTP to user's email
+    // Check if user has 2FA enabled
     try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('two_factor_enabled')
+        .eq('user_id', data.user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
+
+      const has2FAEnabled = profileData?.two_factor_enabled === true;
+
+      if (!has2FAEnabled) {
+        // 2FA is off - complete login directly
+        setLoading(false);
+        navigate('/');
+        return;
+      }
+
+      // 2FA is enabled - sign out and require OTP verification
+      await supabase.auth.signOut();
+
+      // Send OTP to user's email
       const response = await supabase.functions.invoke('send-otp', {
         body: { email, userId: data.user.id },
       });
