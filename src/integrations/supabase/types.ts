@@ -275,6 +275,11 @@ export type Database = {
         Row: {
           avatar_url: string | null
           badge_number: string | null
+          biometric_counter: number | null
+          biometric_credential_id: string | null
+          biometric_enabled: boolean | null
+          biometric_mandatory: boolean | null
+          biometric_public_key: string | null
           clearance_level: Database["public"]["Enums"]["clearance_level"] | null
           created_at: string
           department: string | null
@@ -295,6 +300,11 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           badge_number?: string | null
+          biometric_counter?: number | null
+          biometric_credential_id?: string | null
+          biometric_enabled?: boolean | null
+          biometric_mandatory?: boolean | null
+          biometric_public_key?: string | null
           clearance_level?:
             | Database["public"]["Enums"]["clearance_level"]
             | null
@@ -317,6 +327,11 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           badge_number?: string | null
+          biometric_counter?: number | null
+          biometric_credential_id?: string | null
+          biometric_enabled?: boolean | null
+          biometric_mandatory?: boolean | null
+          biometric_public_key?: string | null
           clearance_level?:
             | Database["public"]["Enums"]["clearance_level"]
             | null

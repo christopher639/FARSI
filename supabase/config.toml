@@ -29,3 +29,15 @@ verify_jwt = false
 
 [functions.verify-totp]
 verify_jwt = false
+
+[functions.webauthn-register-options]
+verify_jwt = false
+
+[functions.webauthn-register-verify]
+verify_jwt = false
+
+[functions.webauthn-login-options]
+verify_jwt = false
+
+[functions.webauthn-login-verify]
+verify_jwt = false

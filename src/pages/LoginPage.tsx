@@ -6,18 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, Eye, EyeOff, Lock, Mail, KeyRound, ArrowLeft, Smartphone } from 'lucide-react';
+import { Shield, Eye, EyeOff, Lock, Mail, KeyRound, ArrowLeft, Smartphone, Fingerprint } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import { startAuthentication } from '@simplewebauthn/browser';
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email address' }).max(255),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }).max(128),
 });
 
-type LoginStep = 'credentials' | '2fa-choice' | 'otp' | 'otp-then-totp' | 'totp' | '2fa-setup-required';
+type LoginStep = 'credentials' | 'biometric' | '2fa-choice' | 'otp' | 'otp-then-totp' | 'totp' | '2fa-setup-required';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -30,9 +31,127 @@ export default function LoginPage() {
   const [totpCode, setTotpCode] = useState('');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [is3FactorFlow, setIs3FactorFlow] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricMandatory, setBiometricMandatory] = useState(false);
+  const [checkingBiometric, setCheckingBiometric] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSystemSettings();
+
+  // Check if biometric is available for this email
+  const checkBiometricAvailability = async (emailToCheck: string) => {
+    if (!emailToCheck) return;
+    
+    setCheckingBiometric(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('webauthn-login-options', {
+        body: { email: emailToCheck },
+      });
+
+      if (!error && data) {
+        setBiometricAvailable(data.biometricAvailable || false);
+        setBiometricMandatory(data.biometricMandatory || false);
+      } else {
+        setBiometricAvailable(false);
+        setBiometricMandatory(false);
+      }
+    } catch (err) {
+      console.error('Error checking biometric:', err);
+      setBiometricAvailable(false);
+      setBiometricMandatory(false);
+    } finally {
+      setCheckingBiometric(false);
+    }
+  };
+
+  // Handle biometric login
+  const handleBiometricLogin = async () => {
+    if (!email) {
+      setError('Please enter your email address first');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Get authentication options from server
+      const { data: optionsData, error: optionsError } = await supabase.functions.invoke('webauthn-login-options', {
+        body: { email },
+      });
+
+      if (optionsError || !optionsData?.options) {
+        throw new Error(optionsError?.message || 'Failed to get login options');
+      }
+
+      if (!optionsData.biometricAvailable) {
+        setError('Biometric login is not set up for this account');
+        setLoading(false);
+        return;
+      }
+
+      // Prepare options for WebAuthn
+      const options = {
+        ...optionsData.options,
+        challenge: optionsData.challenge,
+      };
+
+      // Start WebAuthn authentication
+      const credential = await startAuthentication({ optionsJSON: options });
+
+      // Verify with server
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-login-verify', {
+        body: { email, credential },
+      });
+
+      if (verifyError || !verifyData?.verified) {
+        throw new Error(verifyError?.message || 'Biometric verification failed');
+      }
+
+      // Biometric verified - now we need the password to complete sign in
+      // For mandatory biometric, we should have a different flow
+      // For now, prompt for password after biometric verification
+      setStep('biometric');
+      setLoading(false);
+
+    } catch (err: any) {
+      console.error('Biometric login error:', err);
+      
+      if (err.name === 'NotAllowedError') {
+        setError('Biometric authentication was cancelled. Please try again.');
+      } else {
+        setError(err.message || 'Biometric login failed. Please try again.');
+      }
+      setLoading(false);
+    }
+  };
+
+  // Complete login after biometric verification
+  const handleBiometricPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!password) {
+      setError('Please enter your password');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error: signInError } = await signIn(email, password);
+      setLoading(false);
+
+      if (signInError) {
+        setError(signInError.message);
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      setLoading(false);
+      setError('Login failed. Please try again.');
+    }
+  };
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -340,6 +459,7 @@ export default function LoginPage() {
             <CardTitle className="text-2xl font-bold text-glow">FARSI Platform</CardTitle>
             <CardDescription className="text-muted-foreground mt-2">
               {step === 'credentials' && 'Forensic Analysis Real-Time Security Intelligence'}
+              {step === 'biometric' && 'Complete Sign In'}
               {step === '2fa-choice' && 'Choose Verification Method'}
               {step === 'otp' && 'Email Verification Required'}
               {step === 'otp-then-totp' && 'Step 1 of 2: Email Verification'}
@@ -427,6 +547,80 @@ export default function LoginPage() {
                   </div>
                 )}
               </Button>
+
+              {/* Biometric Login Option */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-muted-foreground/20" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 border-primary/20"
+                onClick={handleBiometricLogin}
+                disabled={loading || !email}
+              >
+                <Fingerprint className="w-4 h-4" />
+                Sign in with Biometrics
+              </Button>
+            </form>
+          )}
+
+          {step === 'biometric' && (
+            <form onSubmit={handleBiometricPasswordSubmit} className="space-y-6">
+              {error && (
+                <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/10 mb-2">
+                  <Fingerprint className="w-8 h-8 text-green-500" />
+                </div>
+                <p className="text-sm font-medium text-green-500">Biometric Verified!</p>
+                <p className="text-sm text-muted-foreground">
+                  Enter your password to complete sign in
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bio-password" className="text-sm font-medium">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="bio-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10 bg-background/50 border-primary/20 focus:border-primary"
+                    required
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                disabled={loading}
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+
+              <button
+                type="button"
+                onClick={handleBackToCredentials}
+                className="w-full text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
             </form>
           )}
 
