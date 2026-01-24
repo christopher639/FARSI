@@ -30,16 +30,23 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await supabase.functions.invoke('send-password-reset', {
+      const { data, error: invokeError } = await supabase.functions.invoke('send-password-reset', {
         body: { email },
       });
 
-      if (response.error) {
+      console.log('Password reset response:', { data, invokeError });
+
+      if (invokeError) {
+        console.error('Invoke error:', invokeError);
         setError('Failed to send reset link. Please try again.');
+      } else if (data?.error) {
+        console.error('Function error:', data.error);
+        setError(data.error || 'Failed to send reset link. Please try again.');
       } else {
         setSent(true);
       }
     } catch (err) {
+      console.error('Catch error:', err);
       setError('An error occurred. Please try again.');
     }
 
