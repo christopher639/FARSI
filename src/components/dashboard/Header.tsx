@@ -65,7 +65,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     navigate('/login');
   };
 
-  const getRoleBadgeColor = (role: string | null) => {
+  const getRoleBadgeColor = (role: string | null | undefined) => {
     switch (role) {
       case 'admin': return 'bg-red-500/20 text-red-400 border-red-500/30';
       case 'analyst': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
@@ -157,7 +157,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium">{getDisplayName()}</p>
                 <Badge className={`text-[10px] ${getRoleBadgeColor(userRole)}`}>
-                  {userRole || 'No Role'}
+                  {userRole === undefined ? 'Loading…' : (userRole || 'No Role')}
                 </Badge>
               </div>
               <Avatar className="w-10 h-10 border border-primary/30">
@@ -180,7 +180,9 @@ export function Header({ onMenuClick }: HeaderProps) {
                 </Avatar>
                 <div>
                   <p className="font-medium">{profile?.full_name || getDisplayName()}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{userRole} Access</p>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {userRole === undefined ? 'Loading access…' : `${userRole || 'No Role'} Access`}
+                  </p>
                 </div>
               </div>
             </DropdownMenuLabel>

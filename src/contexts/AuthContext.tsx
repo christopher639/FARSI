@@ -11,7 +11,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  userRole: AppRole | null;
+  // undefined = still resolving / transient fetch error; null = confirmed no role
+  userRole: AppRole | null | undefined;
   isAdmin: boolean;
   isAnalyst: boolean;
   isViewer: boolean;
@@ -26,10 +27,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<AppRole | null>(null);
+  // Start undefined so routes don't show "Access Denied" before we finish role lookup.
+  const [userRole, setUserRole] = useState<AppRole | null | undefined>(undefined);
   const isMountedRef = useRef(true);
   const isInitializedRef = useRef(false);
   const lastActivityRef = useRef(Date.now());
+  const roleRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Inactivity timeout (30 minutes)
   const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
@@ -47,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string, opts?: { allowRetry?: boolean }) => {
     try {
       const roleQuery = supabase
         .from('user_roles')
@@ -63,20 +66,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        if (isMountedRef.current) setUserRole(null);
+        // Treat errors/timeouts as "unknown" so we don't block valid users with a transient error.
+        if (isMountedRef.current) setUserRole(undefined);
+
+        if (opts?.allowRetry !== false) {
+          if (roleRetryTimeoutRef.current) clearTimeout(roleRetryTimeoutRef.current);
+          roleRetryTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current) fetchUserRole(userId, { allowRetry: false });
+          }, 1000);
+        }
         return;
       }
 
-      if (isMountedRef.current) setUserRole(data?.role as AppRole || null);
+      if (isMountedRef.current) setUserRole((data?.role as AppRole) || null);
     } catch (error) {
       console.error('Error fetching user role:', error);
-      if (isMountedRef.current) setUserRole(null);
+      if (isMountedRef.current) setUserRole(undefined);
+      if (opts?.allowRetry !== false) {
+        if (roleRetryTimeoutRef.current) clearTimeout(roleRetryTimeoutRef.current);
+        roleRetryTimeoutRef.current = setTimeout(() => {
+          if (isMountedRef.current) fetchUserRole(userId, { allowRetry: false });
+        }, 1000);
+      }
     }
   };
 
   const fetchAndSetRole = async (userId: string) => {
     if (isMountedRef.current) setLoading(true);
-    await fetchUserRole(userId);
+    await fetchUserRole(userId, { allowRetry: true });
     if (isMountedRef.current) setLoading(false);
   };
 
@@ -198,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isMountedRef.current = false;
       clearTimeout(timeoutId);
+      if (roleRetryTimeoutRef.current) clearTimeout(roleRetryTimeoutRef.current);
       subscription.unsubscribe();
     };
   }, []);

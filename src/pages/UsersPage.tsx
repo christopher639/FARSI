@@ -386,7 +386,7 @@ export default function UsersPage() {
                 Add User
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[95vw] max-w-3xl max-h-[95vh] p-0 bg-card border-primary/20 overflow-hidden">
+            <DialogContent className="w-[95vw] max-w-4xl h-[95vh] sm:h-auto sm:max-h-[95vh] p-0 bg-card border-primary/20 overflow-hidden flex flex-col">
               <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2">
                 <DialogTitle className="flex items-center gap-2 text-lg">
                   <Shield className="h-5 w-5 text-primary" />
@@ -394,7 +394,7 @@ export default function UsersPage() {
                 </DialogTitle>
               </DialogHeader>
               
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4 sm:px-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4 sm:px-6 flex flex-col flex-1 min-h-0">
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="create" className="flex items-center gap-2 text-xs sm:text-sm">
                     <UserPlus className="h-4 w-4" />
@@ -406,8 +406,8 @@ export default function UsersPage() {
                   </TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="create" className="mt-0">
-                  <ScrollArea className="max-h-[calc(95vh-200px)] pb-4">
+                <TabsContent value="create" className="mt-0 flex-1 min-h-0">
+                  <ScrollArea className="h-[calc(95vh-210px)] sm:h-auto sm:max-h-[calc(95vh-210px)] pb-4 pr-2">
                     <form onSubmit={handleCreateUser} className="space-y-4">
                   {/* Full Name */}
                   <div className="space-y-2">
@@ -562,8 +562,8 @@ export default function UsersPage() {
               </ScrollArea>
             </TabsContent>
             
-            <TabsContent value="invite" className="mt-0">
-              <ScrollArea className="max-h-[calc(90vh-200px)] pb-4">
+            <TabsContent value="invite" className="mt-0 flex-1 min-h-0">
+              <ScrollArea className="h-[calc(95vh-210px)] sm:h-auto sm:max-h-[calc(95vh-210px)] pb-4 pr-2">
                 <form onSubmit={handleInviteUser} className="space-y-4">
                   <p className="text-sm text-muted-foreground mb-4">
                     Send an invitation email. The user will set up their own password and profile details.
