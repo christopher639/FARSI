@@ -40,7 +40,11 @@ export default function LoginPage() {
 
   // Check if biometric is available for this email
   const checkBiometricAvailability = async (emailToCheck: string) => {
-    if (!emailToCheck) return;
+    if (!emailToCheck || !emailToCheck.includes('@')) {
+      setBiometricAvailable(false);
+      setBiometricMandatory(false);
+      return;
+    }
     
     setCheckingBiometric(true);
     try {
@@ -63,6 +67,20 @@ export default function LoginPage() {
       setCheckingBiometric(false);
     }
   };
+
+  // Check biometric availability when email changes (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (email && email.includes('@')) {
+        checkBiometricAvailability(email);
+      } else {
+        setBiometricAvailable(false);
+        setBiometricMandatory(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [email]);
 
   // Handle biometric login
   const handleBiometricLogin = async () => {
@@ -548,26 +566,39 @@ export default function LoginPage() {
                 )}
               </Button>
 
-              {/* Biometric Login Option */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-muted-foreground/20" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or</span>
-                </div>
-              </div>
+              {/* Biometric Login Option - Only show if available for this email */}
+              {(biometricAvailable || checkingBiometric) && (
+                <>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-muted-foreground/20" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full gap-2 border-primary/20"
-                onClick={handleBiometricLogin}
-                disabled={loading || !email}
-              >
-                <Fingerprint className="w-4 h-4" />
-                Sign in with Biometrics
-              </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={`w-full gap-2 ${biometricMandatory ? 'border-primary bg-primary/5' : 'border-primary/20'}`}
+                    onClick={handleBiometricLogin}
+                    disabled={loading || checkingBiometric || !biometricAvailable}
+                  >
+                    {checkingBiometric ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <Fingerprint className="w-4 h-4" />
+                        {biometricMandatory ? 'Sign in with Passkey (Required)' : 'Sign in with Passkey'}
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
             </form>
           )}
 
