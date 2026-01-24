@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import ThreatHeatmapPage from "./pages/ThreatHeatmapPage";
 import AlertsPage from "./pages/AlertsPage";
 import NetworkAnalysisPage from "./pages/NetworkAnalysisPage";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
             
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>

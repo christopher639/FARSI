@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.reset-password]
 verify_jwt = false
+
+[functions.send-invitation]
+verify_jwt = false
+
+[functions.accept-invitation]
+verify_jwt = false
+
+[functions.send-login-alert]
+verify_jwt = false

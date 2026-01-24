@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { UserPlus, Shield, Search, Users, Edit, Trash2, X } from 'lucide-react';
+import { UserPlus, Shield, Search, Users, Mail, Send, Loader2, Edit, Trash2 } from 'lucide-react';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
@@ -24,6 +25,13 @@ const createUserSchema = z.object({
   phone: z.string().max(20).optional(),
   clearanceLevel: z.enum(['top_secret', 'secret', 'confidential', 'unclassified']),
   role: z.enum(['admin', 'analyst', 'viewer']),
+});
+
+const inviteUserSchema = z.object({
+  email: z.string().trim().email({ message: 'Invalid email' }).max(255),
+  role: z.enum(['admin', 'analyst', 'viewer']),
+  clearanceLevel: z.enum(['top_secret', 'secret', 'confidential', 'unclassified']),
+  department: z.string().max(100).optional(),
 });
 
 type UserProfile = {
@@ -54,8 +62,10 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [activeTab, setActiveTab] = useState('create');
 
-  // Form state
+  // Form state for creating user
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -66,6 +76,14 @@ export default function UsersPage() {
     phone: '',
     clearanceLevel: 'unclassified' as const,
     role: 'viewer' as const,
+  });
+
+  // Form state for inviting user
+  const [inviteData, setInviteData] = useState({
+    email: '',
+    role: 'viewer' as const,
+    clearanceLevel: 'unclassified' as const,
+    department: '',
   });
 
   useEffect(() => {
@@ -110,6 +128,47 @@ export default function UsersPage() {
       clearanceLevel: 'unclassified',
       role: 'viewer',
     });
+    setInviteData({
+      email: '',
+      role: 'viewer',
+      clearanceLevel: 'unclassified',
+      department: '',
+    });
+    setActiveTab('create');
+  };
+
+  const handleInviteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const validation = inviteUserSchema.safeParse(inviteData);
+    if (!validation.success) {
+      toast.error(validation.error.errors[0].message);
+      return;
+    }
+
+    setInviting(true);
+    try {
+      const response = await supabase.functions.invoke('send-invitation', {
+        body: {
+          email: inviteData.email,
+          role: inviteData.role,
+          clearanceLevel: inviteData.clearanceLevel,
+          department: inviteData.department || null,
+        },
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
+      
+      toast.success('Invitation sent successfully!');
+      setIsCreateDialogOpen(false);
+      resetForm();
+    } catch (error: any) {
+      console.error('Error sending invitation:', error);
+      toast.error(error.message || 'Failed to send invitation');
+    } finally {
+      setInviting(false);
+    }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -219,16 +278,27 @@ export default function UsersPage() {
             </DialogTrigger>
             <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] p-0 bg-card border-primary/20 overflow-hidden">
               <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2">
-                <div className="flex items-center justify-between">
-                  <DialogTitle className="flex items-center gap-2 text-lg">
-                    <Shield className="h-5 w-5 text-primary" />
-                    Create New User
-                  </DialogTitle>
-                </div>
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <Shield className="h-5 w-5 text-primary" />
+                  Add New User
+                </DialogTitle>
               </DialogHeader>
               
-              <ScrollArea className="max-h-[calc(90vh-120px)] px-4 pb-4 sm:px-6 sm:pb-6">
-                <form onSubmit={handleCreateUser} className="space-y-4">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4 sm:px-6">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="create" className="flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Create User
+                  </TabsTrigger>
+                  <TabsTrigger value="invite" className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Invite User
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="create" className="mt-0">
+                  <ScrollArea className="max-h-[calc(90vh-200px)] pb-4">
+                    <form onSubmit={handleCreateUser} className="space-y-4">
                   {/* Full Name */}
                   <div className="space-y-2">
                     <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
@@ -380,6 +450,93 @@ export default function UsersPage() {
                   </div>
                 </form>
               </ScrollArea>
+            </TabsContent>
+            
+            <TabsContent value="invite" className="mt-0">
+              <ScrollArea className="max-h-[calc(90vh-200px)] pb-4">
+                <form onSubmit={handleInviteUser} className="space-y-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Send an invitation email. The user will set up their own password and profile details.
+                  </p>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="inviteEmail">Email *</Label>
+                    <Input
+                      id="inviteEmail"
+                      type="email"
+                      value={inviteData.email}
+                      onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                      placeholder="user@example.com"
+                      required
+                      className="bg-background/50 h-10"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Role *</Label>
+                    <Select
+                      value={inviteData.role}
+                      onValueChange={(value: any) => setInviteData({ ...inviteData, role: value })}
+                    >
+                      <SelectTrigger className="bg-background/50 h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="viewer">Viewer</SelectItem>
+                        <SelectItem value="analyst">Analyst</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Clearance Level</Label>
+                      <Select
+                        value={inviteData.clearanceLevel}
+                        onValueChange={(value: any) => setInviteData({ ...inviteData, clearanceLevel: value })}
+                      >
+                        <SelectTrigger className="bg-background/50 h-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unclassified">Unclassified</SelectItem>
+                          <SelectItem value="confidential">Confidential</SelectItem>
+                          <SelectItem value="secret">Secret</SelectItem>
+                          <SelectItem value="top_secret">Top Secret</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Department</Label>
+                      <Input
+                        value={inviteData.department}
+                        onChange={(e) => setInviteData({ ...inviteData, department: e.target.value })}
+                        placeholder="Cyber Security"
+                        className="bg-background/50 h-10"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2">
+                    <Button type="submit" className="w-full h-11" disabled={inviting}>
+                      {inviting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Send Invitation
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
             </DialogContent>
           </Dialog>
         )}
