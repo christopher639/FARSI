@@ -148,32 +148,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    // Clear any previous session before attempting new login
-    await supabase.auth.signOut();
-    
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    // If login failed, ensure session is cleared
+    // IMPORTANT:
+    // Don't signOut() here. It can conflict with the internal auth lock used by the SDK
+    // and cause AbortError + a stuck "Authenticating" state.
+    // Also don't fetch role here; onAuthStateChange already handles role fetch.
+    if (isMountedRef.current) setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
     if (error) {
-      setUser(null);
-      setSession(null);
-      setUserRole(null);
-      setLoading(false);
+      if (isMountedRef.current) {
+        setUser(null);
+        setSession(null);
+        setUserRole(null);
+        setLoading(false);
+      }
       return { error };
     }
-    
-    // If login successful, fetch the user's role
-    if (data.user) {
-      await fetchAndSetRole(data.user.id);
-    } else {
-      setLoading(false);
-    }
-    
-    return { error };
+
+    // Auth state + role will be resolved by the onAuthStateChange listener.
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
