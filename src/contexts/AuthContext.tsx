@@ -73,10 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Initialize auth state
+    // Initialize auth state with shorter timeout
     const initializeAuth = async () => {
       try {
+        // Use AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        clearTimeout(timeoutId);
         
         if (!isMountedRef.current) return;
         
@@ -102,13 +108,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initializeAuth();
     
-    // Fallback: ensure loading stops after 10 seconds max
+    // Fallback: ensure loading stops after 3 seconds max
     timeoutId = setTimeout(() => {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && loading) {
         console.warn('Auth initialization timeout - stopping loading spinner');
         setLoading(false);
       }
-    }, 10000);
+    }, 3000);
 
     return () => {
       isMountedRef.current = false;
