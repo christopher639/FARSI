@@ -124,31 +124,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Clear any pending timeout since we got a real auth state
         if (timeoutId) clearTimeout(timeoutId);
         
-        // Skip re-initialization if we already have a valid session and this is just a token refresh
-        if (isInitializedRef.current && event === 'TOKEN_REFRESHED' && session?.user?.id === newSession?.user?.id) {
+        // Skip token refresh events entirely - no state changes needed
+        if (event === 'TOKEN_REFRESHED') {
           setSession(newSession);
           return;
         }
         
-        // Skip if this is a visibility change and we already have a session
-        if (isInitializedRef.current && session && newSession && session.user?.id === newSession.user?.id) {
-          setSession(newSession);
-          return;
-        }
-        
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        
-        if (newSession?.user) {
-          // Only fetch role if we don't have it or user changed
-          if (!userRole || user?.id !== newSession.user.id) {
-            await fetchAndSetRole(newSession.user.id);
-          } else {
-            if (isMountedRef.current) setLoading(false);
+        // For already-initialized sessions, only update session/user if changed
+        if (isInitializedRef.current && newSession?.user) {
+          // Same user - just update session, keep role as-is
+          if (user?.id === newSession.user.id) {
+            setSession(newSession);
+            setUser(newSession.user);
+            return;
           }
-        } else {
+        }
+        
+        // Handle sign-out
+        if (!newSession) {
+          setSession(null);
+          setUser(null);
           setUserRole(null);
           if (isMountedRef.current) setLoading(false);
+          return;
+        }
+        
+        // Handle new sign-in or user change
+        setSession(newSession);
+        setUser(newSession.user);
+        
+        // Only fetch role if not already initialized with same user
+        if (!isInitializedRef.current || user?.id !== newSession.user.id) {
+          await fetchAndSetRole(newSession.user.id);
+        } else if (isMountedRef.current) {
+          setLoading(false);
         }
         
         isInitializedRef.current = true;

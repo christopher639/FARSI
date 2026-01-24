@@ -386,16 +386,16 @@ export default function UsersPage() {
                 Add User
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] p-0 bg-card border-primary/20 overflow-hidden flex flex-col">
-              <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2 flex-shrink-0">
+            <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] p-0 bg-card border-primary/20 flex flex-col">
+              <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2 flex-shrink-0 border-b border-border/50">
                 <DialogTitle className="flex items-center gap-2 text-lg">
                   <Shield className="h-5 w-5 text-primary" />
                   Add New User
                 </DialogTitle>
               </DialogHeader>
               
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                <TabsList className="grid w-full grid-cols-2 mx-4 sm:mx-6 mb-2 flex-shrink-0" style={{ width: 'calc(100% - 2rem)' }}>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+                <TabsList className="grid w-full grid-cols-2 mx-4 sm:mx-6 my-3 flex-shrink-0" style={{ width: 'calc(100% - 2rem)' }}>
                   <TabsTrigger value="create" className="flex items-center gap-2 text-xs sm:text-sm">
                     <UserPlus className="h-4 w-4" />
                     <span className="hidden xs:inline">Create</span> User
@@ -406,247 +406,247 @@ export default function UsersPage() {
                   </TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="create" className="mt-0 flex-1 min-h-0 overflow-hidden data-[state=inactive]:hidden">
-                  <ScrollArea className="h-full px-4 sm:px-6 pb-6">
-                    <form onSubmit={handleCreateUser} className="space-y-4">
-                  {/* Full Name */}
-                  <div className="space-y-2">
-                    <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
-                    <Input
-                      id="fullName"
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      placeholder="John Doe"
-                      required
-                      className="bg-background/50 h-10"
-                    />
-                  </div>
+                <TabsContent value="create" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                  <ScrollArea className="h-[calc(85vh-140px)] px-4 sm:px-6">
+                    <form onSubmit={handleCreateUser} className="space-y-4 pb-6">
+                      {/* Full Name */}
+                      <div className="space-y-2">
+                        <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
+                        <Input
+                          id="fullName"
+                          value={formData.fullName}
+                          onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                          placeholder="John Doe"
+                          required
+                          className="bg-background/50 h-10"
+                        />
+                      </div>
 
-                  {/* Username */}
-                  <div className="space-y-2">
-                    <Label htmlFor="username" className="text-sm font-medium">Username</Label>
-                    <Input
-                      id="username"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      placeholder="johndoe"
-                      className="bg-background/50 h-10"
-                    />
-                  </div>
-                  
-                  {/* Email */}
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="agent@farsi.gov"
-                      required
-                      className="bg-background/50 h-10"
-                    />
-                  </div>
-                  
-                  {/* Password */}
-                  <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="••••••••"
-                      required
-                      className="bg-background/50 h-10"
-                    />
-                  </div>
-                  
-                  {/* Department & Badge - 2 column on larger screens */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="department" className="text-sm font-medium">Department</Label>
-                      <Input
-                        id="department"
-                        value={formData.department}
-                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                        placeholder="Cyber Security"
-                        className="bg-background/50 h-10"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="badgeNumber" className="text-sm font-medium">Badge Number</Label>
-                      <Input
-                        id="badgeNumber"
-                        value={formData.badgeNumber}
-                        onChange={(e) => setFormData({ ...formData, badgeNumber: e.target.value })}
-                        placeholder="A-12345"
-                        className="bg-background/50 h-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Phone & Clearance - 2 column on larger screens */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+254 700 000 000"
-                        className="bg-background/50 h-10"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="clearanceLevel" className="text-sm font-medium">Clearance Level</Label>
-                      <Select
-                        value={formData.clearanceLevel}
-                        onValueChange={(value: any) => setFormData({ ...formData, clearanceLevel: value })}
-                      >
-                        <SelectTrigger className="bg-background/50 h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unclassified">Unclassified</SelectItem>
-                          <SelectItem value="confidential">Confidential</SelectItem>
-                          <SelectItem value="secret">Secret</SelectItem>
-                          <SelectItem value="top_secret">Top Secret</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  {/* Role */}
-                  <div className="space-y-2">
-                    <Label htmlFor="role" className="text-sm font-medium">Role *</Label>
-                    <Select
-                      value={formData.role}
-                      onValueChange={(value: any) => setFormData({ ...formData, role: value })}
-                    >
-                      <SelectTrigger className="bg-background/50 h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="analyst">Analyst</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Admin: Full access • Analyst: Create & edit data • Viewer: Read-only access
-                    </p>
-                  </div>
+                      {/* Username */}
+                      <div className="space-y-2">
+                        <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                        <Input
+                          id="username"
+                          value={formData.username}
+                          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                          placeholder="johndoe"
+                          className="bg-background/50 h-10"
+                        />
+                      </div>
+                      
+                      {/* Email */}
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          placeholder="agent@farsi.gov"
+                          required
+                          className="bg-background/50 h-10"
+                        />
+                      </div>
+                      
+                      {/* Password */}
+                      <div className="space-y-2">
+                        <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          placeholder="••••••••"
+                          required
+                          className="bg-background/50 h-10"
+                        />
+                      </div>
+                      
+                      {/* Department & Badge - 2 column on larger screens */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="department" className="text-sm font-medium">Department</Label>
+                          <Input
+                            id="department"
+                            value={formData.department}
+                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                            placeholder="Cyber Security"
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="badgeNumber" className="text-sm font-medium">Badge Number</Label>
+                          <Input
+                            id="badgeNumber"
+                            value={formData.badgeNumber}
+                            onChange={(e) => setFormData({ ...formData, badgeNumber: e.target.value })}
+                            placeholder="A-12345"
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Phone & Clearance - 2 column on larger screens */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
+                          <Input
+                            id="phone"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            placeholder="+254 700 000 000"
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="clearanceLevel" className="text-sm font-medium">Clearance Level</Label>
+                          <Select
+                            value={formData.clearanceLevel}
+                            onValueChange={(value: any) => setFormData({ ...formData, clearanceLevel: value })}
+                          >
+                            <SelectTrigger className="bg-background/50 h-10">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unclassified">Unclassified</SelectItem>
+                              <SelectItem value="confidential">Confidential</SelectItem>
+                              <SelectItem value="secret">Secret</SelectItem>
+                              <SelectItem value="top_secret">Top Secret</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      {/* Role */}
+                      <div className="space-y-2">
+                        <Label htmlFor="role" className="text-sm font-medium">Role *</Label>
+                        <Select
+                          value={formData.role}
+                          onValueChange={(value: any) => setFormData({ ...formData, role: value })}
+                        >
+                          <SelectTrigger className="bg-background/50 h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="viewer">Viewer</SelectItem>
+                            <SelectItem value="analyst">Analyst</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Admin: Full access • Analyst: Create & edit data • Viewer: Read-only access
+                        </p>
+                      </div>
 
-                  {/* Submit Button */}
-                  <div className="pt-2">
-                    <Button 
-                      type="submit" 
-                      className="w-full h-11" 
-                      disabled={creating}
-                    >
-                      {creating ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                          Creating...
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          Create User
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </ScrollArea>
-            </TabsContent>
+                      {/* Submit Button */}
+                      <div className="pt-2">
+                        <Button 
+                          type="submit" 
+                          className="w-full h-11" 
+                          disabled={creating}
+                        >
+                          {creating ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                              Creating...
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-2" />
+                              Create User
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </ScrollArea>
+                </TabsContent>
             
-            <TabsContent value="invite" className="mt-0 flex-1 min-h-0 overflow-hidden data-[state=inactive]:hidden">
-              <ScrollArea className="h-full px-4 sm:px-6 pb-6">
-                <form onSubmit={handleInviteUser} className="space-y-4">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Send an invitation email. The user will set up their own password and profile details.
-                  </p>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="inviteEmail">Email *</Label>
-                    <Input
-                      id="inviteEmail"
-                      type="email"
-                      value={inviteData.email}
-                      onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
-                      placeholder="user@example.com"
-                      required
-                      className="bg-background/50 h-10"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Role *</Label>
-                    <Select
-                      value={inviteData.role}
-                      onValueChange={(value: any) => setInviteData({ ...inviteData, role: value })}
-                    >
-                      <SelectTrigger className="bg-background/50 h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="analyst">Analyst</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Clearance Level</Label>
-                      <Select
-                        value={inviteData.clearanceLevel}
-                        onValueChange={(value: any) => setInviteData({ ...inviteData, clearanceLevel: value })}
-                      >
-                        <SelectTrigger className="bg-background/50 h-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unclassified">Unclassified</SelectItem>
-                          <SelectItem value="confidential">Confidential</SelectItem>
-                          <SelectItem value="secret">Secret</SelectItem>
-                          <SelectItem value="top_secret">Top Secret</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Department</Label>
-                      <Input
-                        value={inviteData.department}
-                        onChange={(e) => setInviteData({ ...inviteData, department: e.target.value })}
-                        placeholder="Cyber Security"
-                        className="bg-background/50 h-10"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2">
-                    <Button type="submit" className="w-full h-11" disabled={inviting}>
-                      {inviting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="h-4 w-4 mr-2" />
-                          Send Invitation
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
+                <TabsContent value="invite" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                  <ScrollArea className="h-[calc(85vh-140px)] px-4 sm:px-6">
+                    <form onSubmit={handleInviteUser} className="space-y-4 pb-6">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Send an invitation email. The user will set up their own password and profile details.
+                      </p>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteEmail">Email *</Label>
+                        <Input
+                          id="inviteEmail"
+                          type="email"
+                          value={inviteData.email}
+                          onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                          placeholder="user@example.com"
+                          required
+                          className="bg-background/50 h-10"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Role *</Label>
+                        <Select
+                          value={inviteData.role}
+                          onValueChange={(value: any) => setInviteData({ ...inviteData, role: value })}
+                        >
+                          <SelectTrigger className="bg-background/50 h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="viewer">Viewer</SelectItem>
+                            <SelectItem value="analyst">Analyst</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Clearance Level</Label>
+                          <Select
+                            value={inviteData.clearanceLevel}
+                            onValueChange={(value: any) => setInviteData({ ...inviteData, clearanceLevel: value })}
+                          >
+                            <SelectTrigger className="bg-background/50 h-10">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unclassified">Unclassified</SelectItem>
+                              <SelectItem value="confidential">Confidential</SelectItem>
+                              <SelectItem value="secret">Secret</SelectItem>
+                              <SelectItem value="top_secret">Top Secret</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Department</Label>
+                          <Input
+                            value={inviteData.department}
+                            onChange={(e) => setInviteData({ ...inviteData, department: e.target.value })}
+                            placeholder="Cyber Security"
+                            className="bg-background/50 h-10"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="pt-2">
+                        <Button type="submit" className="w-full h-11" disabled={inviting}>
+                          {inviting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Invitation
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </ScrollArea>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
         )}
