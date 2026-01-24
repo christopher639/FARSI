@@ -21,7 +21,11 @@ export function DashboardLayout() {
   return (
     <div className="min-h-screen bg-background">
       <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <Sidebar 
+        isOpen={sidebarOpen} 
+        onToggle={() => setSidebarOpen(!sidebarOpen)} 
+        onClose={isMobile ? () => setSidebarOpen(false) : undefined}
+      />
       
       {/* Overlay for mobile when sidebar is open */}
       {isMobile && sidebarOpen && (
