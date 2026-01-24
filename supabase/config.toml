@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.send-login-alert]
 verify_jwt = false
+
+[functions.generate-totp-secret]
+verify_jwt = true
+
+[functions.verify-totp]
+verify_jwt = false

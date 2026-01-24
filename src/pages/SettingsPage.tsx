@@ -2,14 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { applyThemeImmediate } from "@/hooks/useTheme";
-import { Settings, User, Shield, Bell, Database, Key, Monitor, Globe, Loader2, Save, Camera, Moon, Sun, Upload } from "lucide-react";
+import { Settings, User, Shield, Bell, Database, Key, Monitor, Globe, Loader2, Save, Camera, Moon, Sun, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import { TotpSetupDialog } from "@/components/settings/TotpSetupDialog";
 
 const settingsSections = [
   { icon: User, label: "Profile", id: "profile" },
@@ -39,6 +41,8 @@ export default function SettingsPage() {
     badge_number: "",
     avatar_url: "",
     two_factor_enabled: false,
+    two_factor_method: "email" as "email" | "totp" | "none",
+    totp_enabled: false,
     theme_preference: "dark",
   });
 
@@ -46,6 +50,8 @@ export default function SettingsPage() {
     soundAlerts: true,
     desktopNotifications: false,
   });
+
+  const [showTotpSetup, setShowTotpSetup] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -77,6 +83,8 @@ export default function SettingsPage() {
           badge_number: data.badge_number || "",
           avatar_url: data.avatar_url || "",
           two_factor_enabled: data.two_factor_enabled || false,
+          two_factor_method: (data as any).two_factor_method || "email",
+          totp_enabled: (data as any).totp_enabled || false,
           theme_preference: data.theme_preference || "dark",
         });
       }
@@ -170,7 +178,10 @@ export default function SettingsPage() {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ two_factor_enabled: enabled })
+        .update({ 
+          two_factor_enabled: enabled,
+          two_factor_method: enabled ? profile.two_factor_method : 'none'
+        })
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -180,6 +191,67 @@ export default function SettingsPage() {
     } catch (error: any) {
       console.error('Error updating 2FA:', error);
       toast.error('Failed to update 2FA settings');
+    }
+  };
+
+  const handle2FAMethodChange = async (method: "email" | "totp") => {
+    if (!user) return;
+
+    if (method === 'totp' && !profile.totp_enabled) {
+      // Need to set up TOTP first
+      setShowTotpSetup(true);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ two_factor_method: method })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, two_factor_method: method });
+      toast.success(`2FA method changed to ${method === 'totp' ? 'Google Authenticator' : 'Email OTP'}`);
+    } catch (error: any) {
+      console.error('Error updating 2FA method:', error);
+      toast.error('Failed to update 2FA method');
+    }
+  };
+
+  const handleTotpSetupSuccess = () => {
+    setProfile({ 
+      ...profile, 
+      totp_enabled: true, 
+      two_factor_enabled: true,
+      two_factor_method: 'totp' 
+    });
+  };
+
+  const handleDisableTotp = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          totp_enabled: false,
+          totp_secret: null,
+          two_factor_method: 'email'
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setProfile({ 
+        ...profile, 
+        totp_enabled: false,
+        two_factor_method: 'email'
+      });
+      toast.success('Google Authenticator has been disabled');
+    } catch (error: any) {
+      console.error('Error disabling TOTP:', error);
+      toast.error('Failed to disable Google Authenticator');
     }
   };
 
@@ -387,7 +459,7 @@ export default function SettingsPage() {
                       <div>
                         <p className="font-medium">Two-Factor Authentication</p>
                         <p className="text-sm text-muted-foreground">
-                          Add an extra layer of security with email OTP verification
+                          Add an extra layer of security to your account
                         </p>
                       </div>
                     </div>
@@ -396,6 +468,67 @@ export default function SettingsPage() {
                       onCheckedChange={handleToggle2FA}
                     />
                   </div>
+
+                  {/* 2FA Method Selection */}
+                  {profile.two_factor_enabled && (
+                    <div className="space-y-4 p-4 bg-background/50 rounded-lg border border-panel-border">
+                      <h3 className="font-medium">Authentication Method</h3>
+                      <RadioGroup 
+                        value={profile.two_factor_method} 
+                        onValueChange={(v) => handle2FAMethodChange(v as "email" | "totp")}
+                        className="space-y-3"
+                      >
+                        <div className="flex items-center space-x-3 p-3 rounded-lg border border-panel-border hover:bg-muted/50 transition-colors">
+                          <RadioGroupItem value="email" id="email-otp" />
+                          <Label htmlFor="email-otp" className="flex-1 cursor-pointer">
+                            <div className="font-medium">Email OTP</div>
+                            <div className="text-sm text-muted-foreground">
+                              Receive a 6-digit code via email
+                            </div>
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-3 p-3 rounded-lg border border-panel-border hover:bg-muted/50 transition-colors">
+                          <RadioGroupItem value="totp" id="totp" />
+                          <Label htmlFor="totp" className="flex-1 cursor-pointer">
+                            <div className="font-medium flex items-center gap-2">
+                              <Smartphone className="w-4 h-4" />
+                              Google Authenticator
+                              {profile.totp_enabled && (
+                                <span className="text-xs bg-green-500/20 text-green-500 px-2 py-0.5 rounded">
+                                  Configured
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Use a time-based code from your authenticator app
+                            </div>
+                          </Label>
+                        </div>
+                      </RadioGroup>
+
+                      {/* TOTP Setup/Disable Buttons */}
+                      <div className="flex gap-2 pt-2">
+                        {!profile.totp_enabled ? (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setShowTotpSetup(true)}
+                            className="gap-2"
+                          >
+                            <Smartphone className="w-4 h-4" />
+                            Set Up Google Authenticator
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="outline" 
+                            onClick={handleDisableTotp}
+                            className="gap-2 text-destructive hover:text-destructive"
+                          >
+                            Disable Google Authenticator
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <Separator />
 
@@ -410,6 +543,14 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* TOTP Setup Dialog */}
+                <TotpSetupDialog
+                  open={showTotpSetup}
+                  onOpenChange={setShowTotpSetup}
+                  userId={user?.id || ""}
+                  onSuccess={handleTotpSetupSuccess}
+                />
               </>
             )}
 

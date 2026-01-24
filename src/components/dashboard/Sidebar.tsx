@@ -41,6 +41,7 @@ const navItems: NavItem[] = [
   { icon: Radio, label: "Communications", path: "/communications" },
   { icon: Database, label: "Data Fusion Hub", path: "/data-fusion" },
   { icon: Users, label: "User Management", path: "/users", adminOnly: true },
+  { icon: Settings, label: "System Settings", path: "/system-settings", adminOnly: true },
 ];
 
 const agencies: Agency[] = [

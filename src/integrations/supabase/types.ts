@@ -284,7 +284,10 @@ export type Database = {
           phone: string | null
           status: Database["public"]["Enums"]["user_status"] | null
           theme_preference: string | null
+          totp_enabled: boolean | null
+          totp_secret: string | null
           two_factor_enabled: boolean | null
+          two_factor_method: string | null
           updated_at: string
           user_id: string
           username: string | null
@@ -303,7 +306,10 @@ export type Database = {
           phone?: string | null
           status?: Database["public"]["Enums"]["user_status"] | null
           theme_preference?: string | null
+          totp_enabled?: boolean | null
+          totp_secret?: string | null
           two_factor_enabled?: boolean | null
+          two_factor_method?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
@@ -322,7 +328,10 @@ export type Database = {
           phone?: string | null
           status?: Database["public"]["Enums"]["user_status"] | null
           theme_preference?: string | null
+          totp_enabled?: boolean | null
+          totp_secret?: string | null
           two_factor_enabled?: boolean | null
+          two_factor_method?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
@@ -372,6 +381,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_settings: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       threat_alerts: {
         Row: {
