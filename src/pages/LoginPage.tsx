@@ -17,7 +17,7 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }).max(128),
 });
 
-type LoginStep = 'credentials' | 'otp' | 'totp' | '2fa-setup-required';
+type LoginStep = 'credentials' | '2fa-choice' | 'otp' | 'totp' | '2fa-setup-required';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -101,12 +101,12 @@ export default function LoginPage() {
       await supabase.auth.signOut();
       setPendingUserId(data.user.id);
 
-      // Determine which 2FA method to use
-      if (twoFactorMethod === 'totp' && hasTotpEnabled) {
-        setStep('totp');
+      // If user has TOTP enabled, let them choose between methods
+      if (hasTotpEnabled) {
+        setStep('2fa-choice');
         setLoading(false);
       } else {
-        // Send OTP to user's email
+        // Only email OTP available - send it directly
         const response = await supabase.functions.invoke('send-otp', {
           body: { email, userId: data.user.id },
         });
@@ -124,6 +124,35 @@ export default function LoginPage() {
       setLoading(false);
       setError('Failed to process authentication. Please try again.');
     }
+  };
+
+  const handleChooseEmailOtp = async () => {
+    if (!pendingUserId) return;
+    
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await supabase.functions.invoke('send-otp', {
+        body: { email, userId: pendingUserId },
+      });
+
+      if (response.error) {
+        setLoading(false);
+        setError('Failed to send verification code. Please try again.');
+        return;
+      }
+
+      setStep('otp');
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      setError('Failed to send verification code. Please try again.');
+    }
+  };
+
+  const handleChooseTotp = () => {
+    setStep('totp');
   };
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
@@ -258,6 +287,7 @@ export default function LoginPage() {
             <CardTitle className="text-2xl font-bold text-glow">FARSI Platform</CardTitle>
             <CardDescription className="text-muted-foreground mt-2">
               {step === 'credentials' && 'Forensic Analysis Real-Time Security Intelligence'}
+              {step === '2fa-choice' && 'Choose Verification Method'}
               {step === 'otp' && 'Email Verification Required'}
               {step === 'totp' && 'Authenticator Verification Required'}
               {step === '2fa-setup-required' && 'Two-Factor Authentication Required'}
@@ -344,6 +374,70 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
+          )}
+
+          {step === '2fa-choice' && (
+            <div className="space-y-6">
+              {error && (
+                <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
+                  <Shield className="w-8 h-8 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Choose how you'd like to verify your identity
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-auto py-4 flex items-center gap-4 border-primary/20 hover:border-primary hover:bg-primary/5"
+                  onClick={handleChooseEmailOtp}
+                  disabled={loading}
+                >
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                    <Mail className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <div className="font-medium">Email OTP</div>
+                    <div className="text-sm text-muted-foreground">Send a code to {email}</div>
+                  </div>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-auto py-4 flex items-center gap-4 border-primary/20 hover:border-primary hover:bg-primary/5"
+                  onClick={handleChooseTotp}
+                  disabled={loading}
+                >
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+                    <Smartphone className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <div className="font-medium">Authenticator App</div>
+                    <div className="text-sm text-muted-foreground">Use Google Authenticator</div>
+                  </div>
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-start text-sm">
+                <button
+                  type="button"
+                  onClick={handleBackToCredentials}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+              </div>
+            </div>
           )}
 
           {step === 'otp' && (
