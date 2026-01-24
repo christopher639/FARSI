@@ -17,7 +17,7 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }).max(128),
 });
 
-type LoginStep = 'credentials' | '2fa-choice' | 'otp' | 'totp' | '2fa-setup-required';
+type LoginStep = 'credentials' | '2fa-choice' | 'otp' | 'otp-then-totp' | 'totp' | '2fa-setup-required';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [is3FactorFlow, setIs3FactorFlow] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSystemSettings();
@@ -101,8 +102,25 @@ export default function LoginPage() {
       await supabase.auth.signOut();
       setPendingUserId(data.user.id);
 
-      // If user has TOTP enabled, let them choose between methods
-      if (hasTotpEnabled) {
+      // Check the 2FA method
+      if (twoFactorMethod === 'both' && hasTotpEnabled) {
+        // 3-Factor: Email OTP first, then TOTP
+        setIs3FactorFlow(true);
+        const response = await supabase.functions.invoke('send-otp', {
+          body: { email, userId: data.user.id },
+        });
+
+        if (response.error) {
+          setLoading(false);
+          setError('Failed to send verification code. Please try again.');
+          return;
+        }
+
+        setStep('otp-then-totp');
+        setLoading(false);
+      } else if (hasTotpEnabled) {
+        // User has TOTP enabled, let them choose between methods
+        setIs3FactorFlow(false);
         setStep('2fa-choice');
         setLoading(false);
       } else {
@@ -193,6 +211,40 @@ export default function LoginPage() {
     }
   };
 
+  // Handle OTP submit for 3-factor auth (proceeds to TOTP after OTP)
+  const handleOtpThenTotpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (otpCode.length !== 6) {
+      setError('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Verify OTP
+      const response = await supabase.functions.invoke('verify-otp', {
+        body: { userId: pendingUserId, code: otpCode },
+      });
+
+      if (response.error || !response.data?.verified) {
+        setLoading(false);
+        setError('Invalid or expired verification code');
+        return;
+      }
+
+      // OTP verified - now proceed to TOTP step
+      setOtpCode('');
+      setStep('totp');
+      setLoading(false);
+    } catch (err) {
+      setLoading(false);
+      setError('Verification failed. Please try again.');
+    }
+  };
+
   const handleTotpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -237,6 +289,7 @@ export default function LoginPage() {
     setTotpCode('');
     setError(null);
     setPendingUserId(null);
+    setIs3FactorFlow(false);
   };
 
   const resendOtp = async () => {
@@ -289,7 +342,8 @@ export default function LoginPage() {
               {step === 'credentials' && 'Forensic Analysis Real-Time Security Intelligence'}
               {step === '2fa-choice' && 'Choose Verification Method'}
               {step === 'otp' && 'Email Verification Required'}
-              {step === 'totp' && 'Authenticator Verification Required'}
+              {step === 'otp-then-totp' && 'Step 1 of 2: Email Verification'}
+              {step === 'totp' && (is3FactorFlow ? 'Step 2 of 2: Authenticator Verification' : 'Authenticator Verification Required')}
               {step === '2fa-setup-required' && 'Two-Factor Authentication Required'}
             </CardDescription>
           </div>
@@ -440,6 +494,93 @@ export default function LoginPage() {
             </div>
           )}
 
+          {step === 'otp-then-totp' && (
+            <form onSubmit={handleOtpThenTotpSubmit} className="space-y-6">
+              {error && (
+                <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Progress indicator for 3-factor */}
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="flex items-center gap-1">
+                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">1</div>
+                  <span className="text-xs text-primary font-medium">Email OTP</span>
+                </div>
+                <div className="w-8 h-px bg-muted-foreground/30" />
+                <div className="flex items-center gap-1">
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium">2</div>
+                  <span className="text-xs text-muted-foreground">Auth App</span>
+                </div>
+              </div>
+
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
+                  <KeyRound className="w-8 h-8 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  We've sent a 6-digit verification code to
+                </p>
+                <p className="text-sm font-medium text-foreground">{email}</p>
+              </div>
+              
+              <div className="flex justify-center">
+                <InputOTP
+                  value={otpCode}
+                  onChange={setOtpCode}
+                  maxLength={6}
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                disabled={loading || otpCode.length !== 6}
+              >
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Verifying...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Continue to Authenticator
+                  </div>
+                )}
+              </Button>
+
+              <div className="flex items-center justify-between text-sm">
+                <button
+                  type="button"
+                  onClick={handleBackToCredentials}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={resendOtp}
+                  disabled={loading}
+                  className="text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                >
+                  Resend Code
+                </button>
+              </div>
+            </form>
+          )}
+
           {step === 'otp' && (
             <form onSubmit={handleOtpSubmit} className="space-y-6">
               {error && (
@@ -522,12 +663,27 @@ export default function LoginPage() {
                 </Alert>
               )}
 
+              {/* Progress indicator for 3-factor (step 2) */}
+              {is3FactorFlow && (
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="flex items-center gap-1">
+                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-medium">✓</div>
+                    <span className="text-xs text-green-500 font-medium">Email OTP</span>
+                  </div>
+                  <div className="w-8 h-px bg-primary" />
+                  <div className="flex items-center gap-1">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">2</div>
+                    <span className="text-xs text-primary font-medium">Auth App</span>
+                  </div>
+                </div>
+              )}
+
               <div className="text-center space-y-2">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
                   <Smartphone className="w-8 h-8 text-primary" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Enter the 6-digit code from your
+                  {is3FactorFlow ? 'Final step: Enter the 6-digit code from your' : 'Enter the 6-digit code from your'}
                 </p>
                 <p className="text-sm font-medium text-foreground">Google Authenticator app</p>
               </div>
