@@ -68,59 +68,59 @@
   /* Light Mode Theme - Professional & Clean */
   .light {
     --background: 210 20% 98%;
-    --foreground: 220 30% 15%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 30% 15%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 15%;
+    --popover-foreground: 222 47% 11%;
 
     /* Primary - Deep teal that's professional */
-    --primary: 173 80% 30%;
+    --primary: 173 80% 28%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 20% 94%;
-    --secondary-foreground: 220 30% 15%;
+    --secondary-foreground: 222 47% 11%;
 
     --muted: 210 15% 92%;
-    --muted-foreground: 220 15% 45%;
+    --muted-foreground: 220 20% 35%;
 
     --accent: 173 70% 25%;
     --accent-foreground: 0 0% 100%;
 
     /* Alert Colors - Clear & Accessible */
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 38 92% 45%;
-    --warning-foreground: 20 20% 15%;
+    --warning: 38 92% 40%;
+    --warning-foreground: 20 30% 10%;
 
-    --success: 152 60% 32%;
+    --success: 152 60% 28%;
     --success-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 90%;
-    --ring: 173 80% 30%;
+    --border: 220 20% 82%;
+    --input: 220 20% 88%;
+    --ring: 173 80% 28%;
 
     /* Custom FARSI tokens - Light mode specific */
-    --glow-primary: 173 80% 30%;
-    --glow-warning: 38 92% 45%;
-    --glow-danger: 0 72% 51%;
-    --glow-success: 152 60% 32%;
+    --glow-primary: 173 80% 28%;
+    --glow-warning: 38 92% 40%;
+    --glow-danger: 0 72% 45%;
+    --glow-success: 152 60% 28%;
 
-    --grid-color: 220 15% 92%;
-    --panel-border: 220 15% 85%;
+    --grid-color: 220 15% 88%;
+    --panel-border: 220 20% 78%;
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 30% 30%;
-    --sidebar-primary: 173 80% 30%;
+    --sidebar-foreground: 222 47% 20%;
+    --sidebar-primary: 173 80% 28%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 15% 94%;
-    --sidebar-accent-foreground: 220 30% 15%;
-    --sidebar-border: 220 15% 90%;
-    --sidebar-ring: 173 80% 30%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 20% 85%;
+    --sidebar-ring: 173 80% 28%;
   }
 }
 
