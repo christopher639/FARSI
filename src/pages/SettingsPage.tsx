@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { TotpSetupDialog } from "@/components/settings/TotpSetupDialog";
 import { BiometricSetupDialog } from "@/components/settings/BiometricSetupDialog";
+import { SecurityConfirmDialog } from "@/components/settings/SecurityConfirmDialog";
 
 const settingsSections = [
   { icon: User, label: "Profile", id: "profile" },
@@ -56,6 +57,13 @@ export default function SettingsPage() {
 
   const [showTotpSetup, setShowTotpSetup] = useState(false);
   const [showBiometricSetup, setShowBiometricSetup] = useState(false);
+  
+  // Security confirmation states
+  const [showSecurityConfirm, setShowSecurityConfirm] = useState(false);
+  const [confirmationType, setConfirmationType] = useState<'totp' | 'biometric' | 'email'>('email');
+  const [pendingSecurityAction, setPendingSecurityAction] = useState<(() => void) | null>(null);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmDescription, setConfirmDescription] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -178,7 +186,29 @@ export default function SettingsPage() {
     }
   };
 
-  const handleToggle2FA = async (enabled: boolean) => {
+  // Helper to require security confirmation before action
+  const requireSecurityConfirmation = (
+    type: 'totp' | 'biometric' | 'email',
+    action: () => void,
+    title: string,
+    description: string
+  ) => {
+    setConfirmationType(type);
+    setPendingSecurityAction(() => action);
+    setConfirmTitle(title);
+    setConfirmDescription(description);
+    setShowSecurityConfirm(true);
+  };
+
+  const handleSecurityConfirmSuccess = () => {
+    if (pendingSecurityAction) {
+      pendingSecurityAction();
+      setPendingSecurityAction(null);
+    }
+  };
+
+  // Internal function to actually toggle 2FA (called after confirmation)
+  const executeToggle2FA = async (enabled: boolean) => {
     if (!user) return;
 
     try {
@@ -200,14 +230,35 @@ export default function SettingsPage() {
     }
   };
 
-  const handle2FAMethodChange = async (method: "email" | "totp" | "both") => {
+  const handleToggle2FA = (enabled: boolean) => {
     if (!user) return;
 
-    if ((method === 'totp' || method === 'both') && !profile.totp_enabled) {
-      // Need to set up TOTP first
-      setShowTotpSetup(true);
+    // If disabling 2FA, require confirmation
+    if (!enabled && profile.two_factor_enabled) {
+      // Determine which method to use for confirmation
+      let confirmType: 'totp' | 'biometric' | 'email' = 'email';
+      if (profile.totp_enabled) {
+        confirmType = 'totp';
+      } else if (profile.biometric_enabled) {
+        confirmType = 'biometric';
+      }
+      
+      requireSecurityConfirmation(
+        confirmType,
+        () => executeToggle2FA(false),
+        "Disable Two-Factor Authentication",
+        "You are about to disable 2FA. Please verify your identity to confirm this security change."
+      );
       return;
     }
+    
+    // If enabling, no confirmation needed
+    executeToggle2FA(enabled);
+  };
+
+  // Internal function to actually change 2FA method (called after confirmation)
+  const executeChange2FAMethod = async (method: "email" | "totp" | "both") => {
+    if (!user) return;
 
     try {
       const { error } = await supabase
@@ -230,6 +281,29 @@ export default function SettingsPage() {
     }
   };
 
+  const handle2FAMethodChange = (method: "email" | "totp" | "both") => {
+    if (!user) return;
+
+    if ((method === 'totp' || method === 'both') && !profile.totp_enabled) {
+      // Need to set up TOTP first
+      setShowTotpSetup(true);
+      return;
+    }
+
+    // Changing method requires confirmation with current method
+    let confirmType: 'totp' | 'biometric' | 'email' = 'email';
+    if (profile.two_factor_method === 'totp' || profile.two_factor_method === 'both') {
+      confirmType = 'totp';
+    }
+    
+    requireSecurityConfirmation(
+      confirmType,
+      () => executeChange2FAMethod(method),
+      "Change Authentication Method",
+      "You are about to change your 2FA method. Please verify with your current method."
+    );
+  };
+
   const handleTotpSetupSuccess = () => {
     setProfile({ 
       ...profile, 
@@ -239,7 +313,8 @@ export default function SettingsPage() {
     });
   };
 
-  const handleDisableTotp = async () => {
+  // Internal function to actually disable TOTP (called after confirmation)
+  const executeDisableTotp = async () => {
     if (!user) return;
 
     try {
@@ -266,6 +341,17 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDisableTotp = () => {
+    if (!user) return;
+    
+    requireSecurityConfirmation(
+      'totp',
+      executeDisableTotp,
+      "Disable Google Authenticator",
+      "Enter your current authenticator code to confirm disabling this security method."
+    );
+  };
+
   const handleBiometricSetupSuccess = () => {
     setProfile({ 
       ...profile, 
@@ -274,7 +360,8 @@ export default function SettingsPage() {
     fetchProfile(); // Refresh to get latest biometric settings
   };
 
-  const handleDisableBiometric = async () => {
+  // Internal function to actually disable biometric (called after confirmation)
+  const executeDisableBiometric = async () => {
     if (!user) return;
 
     try {
@@ -300,6 +387,17 @@ export default function SettingsPage() {
       console.error('Error disabling biometric:', error);
       toast.error('Failed to disable biometric authentication');
     }
+  };
+
+  const handleDisableBiometric = () => {
+    if (!user) return;
+    
+    requireSecurityConfirmation(
+      'biometric',
+      executeDisableBiometric,
+      "Disable Biometric Login",
+      "Use your biometric credential to confirm disabling this security method."
+    );
   };
 
   const handleThemeChange = async (theme: string) => {
@@ -672,6 +770,18 @@ export default function SettingsPage() {
                   open={showBiometricSetup}
                   onOpenChange={setShowBiometricSetup}
                   onSuccess={handleBiometricSetupSuccess}
+                />
+
+                {/* Security Confirmation Dialog */}
+                <SecurityConfirmDialog
+                  open={showSecurityConfirm}
+                  onOpenChange={setShowSecurityConfirm}
+                  type={confirmationType}
+                  onConfirm={handleSecurityConfirmSuccess}
+                  title={confirmTitle}
+                  description={confirmDescription}
+                  userEmail={profile.email}
+                  userId={user?.id || ""}
                 />
               </>
             )}
