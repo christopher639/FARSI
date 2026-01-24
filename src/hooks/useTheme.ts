@@ -29,9 +29,9 @@ export function useTheme() {
     // 2. Then fetch from DB to sync (only if user is logged in)
     const fetchAndApplyTheme = async () => {
       if (!user) {
-        // If no cached theme and not logged in, default to dark
+        // If no cached theme and not logged in, default to light
         if (!cachedTheme) {
-          applyTheme('dark');
+          applyTheme('light');
         }
         return;
       }
@@ -45,7 +45,7 @@ export function useTheme() {
 
         if (error) throw error;
 
-        const dbTheme = data?.theme_preference || 'dark';
+        const dbTheme = data?.theme_preference || 'light';
         // Only apply if different from cache (to avoid unnecessary repaints)
         if (dbTheme !== cachedTheme) {
           applyTheme(dbTheme);
@@ -54,7 +54,7 @@ export function useTheme() {
         console.error('Error fetching theme:', error);
         // Keep cached or default
         if (!cachedTheme) {
-          applyTheme('dark');
+          applyTheme('light');
         }
       }
     };
