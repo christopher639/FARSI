@@ -1,21 +1,22 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings, User, Shield, Bell, Database, Key, Monitor, Globe, Loader2, Save } from "lucide-react";
+import { Settings, User, Shield, Bell, Database, Key, Monitor, Globe, Loader2, Save, Camera, Moon, Sun, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "sonner";
 
 const settingsSections = [
   { icon: User, label: "Profile", id: "profile" },
   { icon: Shield, label: "Security", id: "security" },
   { icon: Bell, label: "Notifications", id: "notifications" },
+  { icon: Monitor, label: "Appearance", id: "appearance" },
   { icon: Database, label: "Data & Privacy", id: "data" },
   { icon: Key, label: "API Access", id: "api" },
-  { icon: Monitor, label: "Display", id: "display" },
   { icon: Globe, label: "Language", id: "language" },
 ];
 
@@ -24,18 +25,23 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState("profile");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [profile, setProfile] = useState({
     full_name: "",
+    username: "",
     email: "",
     department: "",
     phone: "",
     clearance_level: "",
     badge_number: "",
+    avatar_url: "",
+    two_factor_enabled: false,
+    theme_preference: "dark",
   });
 
   const [preferences, setPreferences] = useState({
-    darkMode: true,
     soundAlerts: true,
     desktopNotifications: false,
   });
@@ -62,11 +68,15 @@ export default function SettingsPage() {
       if (data) {
         setProfile({
           full_name: data.full_name || "",
+          username: data.username || "",
           email: data.email || user.email || "",
           department: data.department || "",
           phone: data.phone || "",
           clearance_level: data.clearance_level || "unclassified",
           badge_number: data.badge_number || "",
+          avatar_url: data.avatar_url || "",
+          two_factor_enabled: data.two_factor_enabled || false,
+          theme_preference: data.theme_preference || "dark",
         });
       }
     } catch (error) {
@@ -85,6 +95,7 @@ export default function SettingsPage() {
         .from("profiles")
         .update({
           full_name: profile.full_name,
+          username: profile.username,
           department: profile.department,
           phone: profile.phone,
         })
@@ -101,8 +112,108 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be less than 2MB');
+      return;
+    }
+
+    setUploadingAvatar(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile({ ...profile, avatar_url: publicUrl });
+      toast.success('Avatar updated successfully');
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast.error(error.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleToggle2FA = async (enabled: boolean) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ two_factor_enabled: enabled })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, two_factor_enabled: enabled });
+      toast.success(`Two-factor authentication ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error: any) {
+      console.error('Error updating 2FA:', error);
+      toast.error('Failed to update 2FA settings');
+    }
+  };
+
+  const handleThemeChange = async (theme: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ theme_preference: theme })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, theme_preference: theme });
+      
+      // Apply theme
+      document.documentElement.classList.remove('light', 'dark');
+      if (theme !== 'system') {
+        document.documentElement.classList.add(theme);
+      }
+      
+      toast.success(`Theme changed to ${theme}`);
+    } catch (error: any) {
+      console.error('Error updating theme:', error);
+      toast.error('Failed to update theme');
+    }
+  };
+
   const clearanceLevelLabel = (level: string) => {
     return level.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   return (
@@ -145,12 +256,39 @@ export default function SettingsPage() {
 
                 {/* Profile Section */}
                 <div className="space-y-6">
+                  {/* Avatar Upload */}
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <User className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                    <div className="relative group">
+                      <Avatar className="w-20 h-20 border-2 border-primary/30">
+                        <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
+                        <AvatarFallback className="bg-primary/20 text-primary text-xl">
+                          {getInitials(profile.full_name || profile.email || 'U')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAvatar}
+                        className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      >
+                        {uploadingAvatar ? (
+                          <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        ) : (
+                          <Camera className="w-6 h-6 text-white" />
+                        )}
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
                     </div>
                     <div>
                       <h3 className="font-medium">{profile.full_name || "Operator"}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        @{profile.username || "no-username"}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         Security Clearance: {clearanceLevelLabel(profile.clearance_level)}
                       </p>
@@ -169,6 +307,16 @@ export default function SettingsPage() {
                         id="name" 
                         value={profile.full_name}
                         onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
+                        className="bg-background/50"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="username">Username</Label>
+                      <Input 
+                        id="username" 
+                        value={profile.username}
+                        onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                        placeholder="Choose a username"
                         className="bg-background/50"
                       />
                     </div>
@@ -229,13 +377,105 @@ export default function SettingsPage() {
               </>
             )}
 
+            {activeSection === "security" && (
+              <>
+                <h1 className="text-xl font-bold mb-6">Security Settings</h1>
+                <div className="space-y-6">
+                  {/* 2FA Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-panel-border">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Shield className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Two-Factor Authentication</p>
+                        <p className="text-sm text-muted-foreground">
+                          Add an extra layer of security with email OTP verification
+                        </p>
+                      </div>
+                    </div>
+                    <Switch 
+                      checked={profile.two_factor_enabled}
+                      onCheckedChange={handleToggle2FA}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Password Change */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium">Password</h3>
+                    <p className="text-sm text-muted-foreground">
+                      To change your password, use the password reset feature.
+                    </p>
+                    <Button variant="outline" asChild>
+                      <a href="/forgot-password">Change Password</a>
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeSection === "appearance" && (
+              <>
+                <h1 className="text-xl font-bold mb-6">Appearance Settings</h1>
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="font-medium">Theme</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      {[
+                        { id: 'light', label: 'Light', icon: Sun },
+                        { id: 'dark', label: 'Dark', icon: Moon },
+                        { id: 'system', label: 'System', icon: Monitor },
+                      ].map((theme) => (
+                        <button
+                          key={theme.id}
+                          onClick={() => handleThemeChange(theme.id)}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors ${
+                            profile.theme_preference === theme.id
+                              ? 'border-primary bg-primary/10'
+                              : 'border-panel-border hover:border-primary/50'
+                          }`}
+                        >
+                          <theme.icon className={`w-6 h-6 ${
+                            profile.theme_preference === theme.id ? 'text-primary' : 'text-muted-foreground'
+                          }`} />
+                          <span className="text-sm">{theme.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Project Branding */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium">Project Branding</h3>
+                    <div className="flex items-center gap-4 p-4 bg-background/50 rounded-lg border border-panel-border">
+                      <img 
+                        src="/android-chrome-192x192.png" 
+                        alt="FARSI Logo" 
+                        className="w-16 h-16 rounded-xl"
+                      />
+                      <div>
+                        <p className="font-semibold text-lg">FARSI</p>
+                        <p className="text-sm text-muted-foreground">
+                          Forensic Analysis Real-Time Security Intelligence
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
             {activeSection === "notifications" && (
               <>
                 <h1 className="text-xl font-bold mb-6">Notification Settings</h1>
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-panel-border">
                     <div>
-                      <p className="font-medium text-sm">Sound Alerts</p>
+                      <p className="font-medium">Sound Alerts</p>
                       <p className="text-sm text-muted-foreground">Play sound for critical alerts</p>
                     </div>
                     <Switch 
@@ -244,9 +484,9 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-4 bg-background/50 rounded-lg border border-panel-border">
                     <div>
-                      <p className="font-medium text-sm">Desktop Notifications</p>
+                      <p className="font-medium">Desktop Notifications</p>
                       <p className="text-sm text-muted-foreground">Show browser notifications</p>
                     </div>
                     <Switch 
@@ -258,25 +498,7 @@ export default function SettingsPage() {
               </>
             )}
 
-            {activeSection === "display" && (
-              <>
-                <h1 className="text-xl font-bold mb-6">Display Settings</h1>
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">Dark Mode</p>
-                      <p className="text-sm text-muted-foreground">Use dark theme for the interface</p>
-                    </div>
-                    <Switch 
-                      checked={preferences.darkMode}
-                      onCheckedChange={(checked) => setPreferences({ ...preferences, darkMode: checked })}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {(activeSection === "security" || activeSection === "data" || activeSection === "api" || activeSection === "language") && (
+            {(activeSection === "data" || activeSection === "api" || activeSection === "language") && (
               <div className="text-center py-12 text-muted-foreground">
                 <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>{settingsSections.find(s => s.id === activeSection)?.label} settings coming soon</p>
