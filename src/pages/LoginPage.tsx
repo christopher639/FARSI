@@ -6,19 +6,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, Eye, EyeOff, Lock, Mail, KeyRound, ArrowLeft, Smartphone, Fingerprint } from 'lucide-react';
+import { Shield, Eye, EyeOff, Lock, Mail, KeyRound, ArrowLeft, Smartphone, Fingerprint, Scan } from 'lucide-react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { startAuthentication } from '@simplewebauthn/browser';
+import { MandatorySecuritySetupDialog } from '@/components/settings/MandatorySecuritySetupDialog';
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email address' }).max(255),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }).max(128),
 });
 
-type LoginStep = 'credentials' | 'biometric' | '2fa-choice' | 'otp' | 'otp-then-totp' | 'totp' | '2fa-setup-required';
+type LoginStep = 'credentials' | 'biometric' | 'face-unlock' | '2fa-choice' | 'otp' | 'otp-then-totp' | 'totp' | '2fa-setup-required';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -34,6 +35,9 @@ export default function LoginPage() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricMandatory, setBiometricMandatory] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(false);
+  const [userHasBiometricEnabled, setUserHasBiometricEnabled] = useState(false);
+  const [showMandatorySetup, setShowMandatorySetup] = useState(false);
+  const [mandatoryMethod, setMandatoryMethod] = useState<string>('any');
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSystemSettings();
@@ -144,6 +148,81 @@ export default function LoginPage() {
     }
   };
 
+  // Handle Face Unlock after credentials
+  const handleFaceUnlock = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Get authentication options from server
+      const { data: optionsData, error: optionsError } = await supabase.functions.invoke('webauthn-login-options', {
+        body: { email },
+      });
+
+      if (optionsError || !optionsData?.options) {
+        throw new Error(optionsError?.message || 'Failed to get face unlock options');
+      }
+
+      // Prepare options for WebAuthn
+      const options = {
+        ...optionsData.options,
+        challenge: optionsData.challenge,
+      };
+
+      // Start WebAuthn authentication (Face ID, Windows Hello, etc.)
+      const credential = await startAuthentication({ optionsJSON: options });
+
+      // Verify with server
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-login-verify', {
+        body: { email, credential },
+      });
+
+      if (verifyError || !verifyData?.verified) {
+        throw new Error(verifyError?.message || 'Face unlock verification failed');
+      }
+
+      // Face unlock verified - complete sign in
+      const { error: finalSignInError } = await signIn(email, password);
+      setLoading(false);
+
+      if (finalSignInError) {
+        setError(finalSignInError.message);
+      } else {
+        navigate('/');
+      }
+
+    } catch (err: any) {
+      console.error('Face unlock error:', err);
+      
+      if (err.name === 'NotAllowedError') {
+        setError('Face unlock was cancelled. Please try again or skip.');
+      } else {
+        setError(err.message || 'Face unlock failed. You can skip and continue.');
+      }
+      setLoading(false);
+    }
+  };
+
+  // Skip face unlock and continue with normal login
+  const handleSkipFaceUnlock = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error: finalSignInError } = await signIn(email, password);
+      setLoading(false);
+
+      if (finalSignInError) {
+        setError(finalSignInError.message);
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      setLoading(false);
+      setError('Login failed. Please try again.');
+    }
+  };
+
   // Complete login after biometric verification
   const handleBiometricPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +284,7 @@ export default function LoginPage() {
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('two_factor_enabled, totp_enabled')
+        .select('two_factor_enabled, totp_enabled, biometric_enabled, two_factor_method')
         .eq('user_id', data.user.id)
         .single();
 
@@ -214,22 +293,37 @@ export default function LoginPage() {
       }
 
       const has2FAEnabled = profileData?.two_factor_enabled === true;
-      const hasTotpEnabled = (profileData as any)?.totp_enabled === true;
-      const twoFactorMethod = (profileData as any)?.two_factor_method || 'email';
+      const hasTotpEnabled = profileData?.totp_enabled === true;
+      const hasBiometricEnabled = profileData?.biometric_enabled === true;
+      const twoFactorMethod = profileData?.two_factor_method || 'email';
       const mandatory2FA = settings.security_2fa_enforcement?.mandatory;
-      const mandatoryMethod = settings.security_2fa_enforcement?.method;
+      const mandatoryMethodSetting = settings.security_2fa_enforcement?.method || 'any';
+
+      // Store biometric status for face unlock option
+      setUserHasBiometricEnabled(hasBiometricEnabled);
 
       // Check if mandatory 2FA is required but not set up
-      if (mandatory2FA && !has2FAEnabled) {
+      if (mandatory2FA && !has2FAEnabled && !hasBiometricEnabled) {
         await supabase.auth.signOut();
         setPendingUserId(data.user.id);
-        setStep('2fa-setup-required');
+        setMandatoryMethod(mandatoryMethodSetting);
+        setShowMandatorySetup(true);
         setLoading(false);
         return;
       }
 
       if (!has2FAEnabled) {
-        // 2FA is off - complete login directly
+        // 2FA is off - check if biometric is enabled for face unlock option
+        if (hasBiometricEnabled) {
+          // Offer face unlock as additional verification
+          await supabase.auth.signOut();
+          setPendingUserId(data.user.id);
+          setStep('face-unlock');
+          setLoading(false);
+          return;
+        }
+        
+        // No additional security - complete login directly
         setLoading(false);
         navigate('/');
         return;
@@ -427,6 +521,7 @@ export default function LoginPage() {
     setError(null);
     setPendingUserId(null);
     setIs3FactorFlow(false);
+    setUserHasBiometricEnabled(false);
   };
 
   const resendOtp = async () => {
@@ -450,6 +545,26 @@ export default function LoginPage() {
     }
 
     setLoading(false);
+  };
+
+  const handleMandatorySetupSuccess = async () => {
+    setShowMandatorySetup(false);
+    
+    // Now complete the login
+    setLoading(true);
+    try {
+      const { error: finalSignInError } = await signIn(email, password);
+      setLoading(false);
+
+      if (finalSignInError) {
+        setError(finalSignInError.message);
+      } else {
+        navigate('/');
+      }
+    } catch (err) {
+      setLoading(false);
+      setError('Login failed. Please try again.');
+    }
   };
 
   return (
@@ -478,6 +593,7 @@ export default function LoginPage() {
             <CardDescription className="text-muted-foreground mt-2">
               {step === 'credentials' && 'Forensic Analysis Real-Time Security Intelligence'}
               {step === 'biometric' && 'Complete Sign In'}
+              {step === 'face-unlock' && 'Verify with Face Unlock'}
               {step === '2fa-choice' && 'Choose Verification Method'}
               {step === 'otp' && 'Email Verification Required'}
               {step === 'otp-then-totp' && 'Step 1 of 2: Email Verification'}
@@ -653,6 +769,67 @@ export default function LoginPage() {
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
             </form>
+          )}
+
+          {step === 'face-unlock' && (
+            <div className="space-y-6">
+              {error && (
+                <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="text-center space-y-4">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-2 animate-pulse">
+                  <Scan className="w-10 h-10 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Face Unlock Available</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Your account has face unlock enabled. Use it for additional security, or skip to continue.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  className="w-full gap-2"
+                  onClick={handleFaceUnlock}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <Scan className="w-4 h-4" />
+                      Use Face Unlock
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleSkipFaceUnlock}
+                  disabled={loading}
+                >
+                  Skip & Continue
+                </Button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleBackToCredentials}
+                className="w-full text-sm text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Login
+              </button>
+            </div>
           )}
 
           {step === '2fa-choice' && (
@@ -1000,6 +1177,16 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mandatory Security Setup Dialog */}
+      <MandatorySecuritySetupDialog
+        open={showMandatorySetup}
+        onOpenChange={setShowMandatorySetup}
+        onSuccess={handleMandatorySetupSuccess}
+        userId={pendingUserId || ''}
+        userEmail={email}
+        mandatoryMethod={mandatoryMethod}
+      />
     </div>
   );
 }
