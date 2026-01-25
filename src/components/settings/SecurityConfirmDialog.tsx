@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,11 @@ import { startAuthentication } from "@simplewebauthn/browser";
 
 type ConfirmationType = 'totp' | 'biometric' | 'email' | 'password';
 type AlternativeMethod = 'email' | 'password';
+
+// Session storage keys for state persistence
+const SEC_STORAGE_KEY_CODE_SENT = 'sec_confirm_code_sent';
+const SEC_STORAGE_KEY_SHOW_ALT = 'sec_confirm_show_alt';
+const SEC_STORAGE_KEY_ALT_METHOD = 'sec_confirm_alt_method';
 
 interface SecurityConfirmDialogProps {
   open: boolean;
@@ -44,10 +49,46 @@ export function SecurityConfirmDialog({
   const [error, setError] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [codeSent, setCodeSent] = useState(false);
-  const [showAlternative, setShowAlternative] = useState(false);
-  const [alternativeMethod, setAlternativeMethod] = useState<AlternativeMethod | null>(null);
+  // Initialize from session storage to persist across tab switches
+  const [codeSent, setCodeSent] = useState(() => {
+    return sessionStorage.getItem(SEC_STORAGE_KEY_CODE_SENT) === 'true';
+  });
+  const [showAlternative, setShowAlternative] = useState(() => {
+    return sessionStorage.getItem(SEC_STORAGE_KEY_SHOW_ALT) === 'true';
+  });
+  const [alternativeMethod, setAlternativeMethod] = useState<AlternativeMethod | null>(() => {
+    const saved = sessionStorage.getItem(SEC_STORAGE_KEY_ALT_METHOD);
+    return saved as AlternativeMethod | null;
+  });
   const [biometricFailed, setBiometricFailed] = useState(false);
+  
+  // Track if mounted
+  const isMountedRef = useRef(true);
+
+  // Persist state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem(SEC_STORAGE_KEY_CODE_SENT, String(codeSent));
+  }, [codeSent]);
+
+  useEffect(() => {
+    sessionStorage.setItem(SEC_STORAGE_KEY_SHOW_ALT, String(showAlternative));
+  }, [showAlternative]);
+
+  useEffect(() => {
+    if (alternativeMethod) {
+      sessionStorage.setItem(SEC_STORAGE_KEY_ALT_METHOD, alternativeMethod);
+    } else {
+      sessionStorage.removeItem(SEC_STORAGE_KEY_ALT_METHOD);
+    }
+  }, [alternativeMethod]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleClose = () => {
     setCode("");
@@ -58,6 +99,10 @@ export function SecurityConfirmDialog({
     setShowAlternative(false);
     setAlternativeMethod(null);
     setBiometricFailed(false);
+    // Clear persisted state
+    sessionStorage.removeItem(SEC_STORAGE_KEY_CODE_SENT);
+    sessionStorage.removeItem(SEC_STORAGE_KEY_SHOW_ALT);
+    sessionStorage.removeItem(SEC_STORAGE_KEY_ALT_METHOD);
     onOpenChange(false);
   };
 
