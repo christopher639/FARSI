@@ -1,4 +1,4 @@
-import React, { useState, forwardRef } from "react";
+import React, { useState, forwardRef, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,13 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { TotpSetupDialog } from "./TotpSetupDialog";
 
 type SetupMethod = 'totp' | 'biometric' | 'email';
+type StepType = 'intro' | 'verify-email' | 'selecting' | 'setting-up' | 'success';
+
+// Session storage keys for state persistence
+const STORAGE_KEY_STEP = 'mfa_setup_step';
+const STORAGE_KEY_OTP_SENT = 'mfa_setup_otp_sent';
+const STORAGE_KEY_EMAIL_VERIFIED = 'mfa_setup_email_verified';
+const STORAGE_KEY_SELECTED_METHOD = 'mfa_setup_selected_method';
 
 interface MandatorySecuritySetupDialogProps {
   open: boolean;
@@ -37,17 +44,60 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
     mandatoryMethod = 'any',
     preventClose = false,
   }, ref) {
-    const [step, setStep] = useState<'intro' | 'verify-email' | 'selecting' | 'setting-up' | 'success'>('intro');
-    const [selectedMethod, setSelectedMethod] = useState<SetupMethod | null>(null);
+    // Initialize state from sessionStorage to persist across tab switches
+    const [step, setStep] = useState<StepType>(() => {
+      const saved = sessionStorage.getItem(STORAGE_KEY_STEP);
+      return (saved as StepType) || 'intro';
+    });
+    const [selectedMethod, setSelectedMethod] = useState<SetupMethod | null>(() => {
+      const saved = sessionStorage.getItem(STORAGE_KEY_SELECTED_METHOD);
+      return saved as SetupMethod | null;
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showTotpSetup, setShowTotpSetup] = useState(false);
     
-    // Email OTP verification state
+    // Email OTP verification state - persist across tab switches
     const [otpCode, setOtpCode] = useState("");
-    const [otpSent, setOtpSent] = useState(false);
-    const [emailVerified, setEmailVerified] = useState(false);
+    const [otpSent, setOtpSent] = useState(() => {
+      return sessionStorage.getItem(STORAGE_KEY_OTP_SENT) === 'true';
+    });
+    const [emailVerified, setEmailVerified] = useState(() => {
+      return sessionStorage.getItem(STORAGE_KEY_EMAIL_VERIFIED) === 'true';
+    });
     const [sendingOtp, setSendingOtp] = useState(false);
+    
+    // Track if component is mounted to prevent state updates on unmount
+    const isMountedRef = useRef(true);
+
+    // Persist state to sessionStorage when it changes
+    useEffect(() => {
+      sessionStorage.setItem(STORAGE_KEY_STEP, step);
+    }, [step]);
+
+    useEffect(() => {
+      sessionStorage.setItem(STORAGE_KEY_OTP_SENT, String(otpSent));
+    }, [otpSent]);
+
+    useEffect(() => {
+      sessionStorage.setItem(STORAGE_KEY_EMAIL_VERIFIED, String(emailVerified));
+    }, [emailVerified]);
+
+    useEffect(() => {
+      if (selectedMethod) {
+        sessionStorage.setItem(STORAGE_KEY_SELECTED_METHOD, selectedMethod);
+      } else {
+        sessionStorage.removeItem(STORAGE_KEY_SELECTED_METHOD);
+      }
+    }, [selectedMethod]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+      isMountedRef.current = true;
+      return () => {
+        isMountedRef.current = false;
+      };
+    }, []);
 
     const handleClose = () => {
       // Prevent closing without completing setup if preventClose is true
@@ -69,6 +119,11 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
       setOtpSent(false);
       setEmailVerified(false);
       setSendingOtp(false);
+      // Clear persisted state
+      sessionStorage.removeItem(STORAGE_KEY_STEP);
+      sessionStorage.removeItem(STORAGE_KEY_OTP_SENT);
+      sessionStorage.removeItem(STORAGE_KEY_EMAIL_VERIFIED);
+      sessionStorage.removeItem(STORAGE_KEY_SELECTED_METHOD);
     };
 
     const getAvailableMethods = (): SetupMethod[] => {
