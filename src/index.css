@@ -223,6 +223,25 @@
     background-size: 20px 20px;
   }
 
+  /* Diagonal grid that fades to the right */
+  .diagonal-grid-fade {
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(45deg, hsl(var(--primary) / 0.08) 1px, transparent 1px),
+      linear-gradient(-45deg, hsl(var(--primary) / 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: linear-gradient(to right, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0) 80%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0) 80%);
+    pointer-events: none;
+  }
+
+  .light .diagonal-grid-fade {
+    background-image: 
+      linear-gradient(45deg, hsl(var(--primary) / 0.1) 1px, transparent 1px),
+      linear-gradient(-45deg, hsl(var(--primary) / 0.1) 1px, transparent 1px);
+  }
+
   /* Radar sweep animation */
   @keyframes radar-sweep {
     from {
