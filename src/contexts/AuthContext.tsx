@@ -2,9 +2,6 @@ import { createContext, useContext, useEffect, useState, ReactNode, useRef, useC
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-// Session persistence key
-const AUTH_INITIALIZED_KEY = 'farsi_auth_initialized';
-
 type AppRole = 'admin' | 'analyst' | 'viewer';
 
 interface AuthContextType {
@@ -33,6 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isInitializedRef = useRef(false);
   const lastActivityRef = useRef(Date.now());
   const roleRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track current user ID to prevent redundant role fetches
+  const currentUserIdRef = useRef<string | null>(null);
+  // Track if role has been fetched for current user
+  const roleLoadedRef = useRef(false);
   
   // Inactivity timeout (30 minutes)
   const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
@@ -51,6 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchUserRole = async (userId: string, opts?: { allowRetry?: boolean }) => {
+    // Skip if role already loaded for this user
+    if (currentUserIdRef.current === userId && roleLoadedRef.current) {
+      return;
+    }
+    
     try {
       const roleQuery = supabase
         .from('user_roles')
@@ -66,10 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user role:', error);
-        // Treat errors/timeouts as "unknown" so we don't block valid users with a transient error.
-        if (isMountedRef.current) setUserRole(undefined);
+        // Only set undefined if we haven't loaded role for this user yet
+        if (isMountedRef.current && !roleLoadedRef.current) {
+          setUserRole(undefined);
+        }
 
-        if (opts?.allowRetry !== false) {
+        if (opts?.allowRetry !== false && !roleLoadedRef.current) {
           if (roleRetryTimeoutRef.current) clearTimeout(roleRetryTimeoutRef.current);
           roleRetryTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current) fetchUserRole(userId, { allowRetry: false });
@@ -78,11 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (isMountedRef.current) setUserRole((data?.role as AppRole) || null);
+      if (isMountedRef.current) {
+        setUserRole((data?.role as AppRole) || null);
+        roleLoadedRef.current = true;
+        currentUserIdRef.current = userId;
+      }
     } catch (error) {
       console.error('Error fetching user role:', error);
-      if (isMountedRef.current) setUserRole(undefined);
-      if (opts?.allowRetry !== false) {
+      if (isMountedRef.current && !roleLoadedRef.current) {
+        setUserRole(undefined);
+      }
+      if (opts?.allowRetry !== false && !roleLoadedRef.current) {
         if (roleRetryTimeoutRef.current) clearTimeout(roleRetryTimeoutRef.current);
         roleRetryTimeoutRef.current = setTimeout(() => {
           if (isMountedRef.current) fetchUserRole(userId, { allowRetry: false });
@@ -92,6 +106,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchAndSetRole = async (userId: string) => {
+    // Don't set loading if role is already loaded for this user
+    if (currentUserIdRef.current === userId && roleLoadedRef.current) {
+      if (isMountedRef.current) setLoading(false);
+      return;
+    }
+    
     if (isMountedRef.current) setLoading(true);
     await fetchUserRole(userId, { allowRetry: true });
     if (isMountedRef.current) setLoading(false);
@@ -126,16 +146,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Skip token refresh events entirely - no state changes needed
         if (event === 'TOKEN_REFRESHED') {
+          // Silently update session without triggering loading states
           setSession(newSession);
           return;
         }
         
-        // For already-initialized sessions, only update session/user if changed
+        // For already-initialized sessions with same user, just update session
         if (isInitializedRef.current && newSession?.user) {
-          // Same user - just update session, keep role as-is
-          if (user?.id === newSession.user.id) {
+          if (currentUserIdRef.current === newSession.user.id && roleLoadedRef.current) {
+            // Same user, role already loaded - just update session/user quietly
             setSession(newSession);
             setUser(newSession.user);
+            // Ensure loading is false
+            setLoading(false);
             return;
           }
         }
@@ -145,6 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(null);
           setUser(null);
           setUserRole(null);
+          roleLoadedRef.current = false;
+          currentUserIdRef.current = null;
           if (isMountedRef.current) setLoading(false);
           return;
         }
@@ -153,10 +178,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(newSession);
         setUser(newSession.user);
         
-        // Only fetch role if not already initialized with same user
-        if (!isInitializedRef.current || user?.id !== newSession.user.id) {
+        // Only fetch role if it's a different user or role not loaded yet
+        if (currentUserIdRef.current !== newSession.user.id || !roleLoadedRef.current) {
+          roleLoadedRef.current = false;
           await fetchAndSetRole(newSession.user.id);
-        } else if (isMountedRef.current) {
+        } else {
           setLoading(false);
         }
         
@@ -166,8 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Initialize auth state with shorter timeout
     const initializeAuth = async () => {
-      // Skip if already initialized
-      if (isInitializedRef.current) {
+      // Skip if already initialized with a user
+      if (isInitializedRef.current && currentUserIdRef.current && roleLoadedRef.current) {
         setLoading(false);
         return;
       }
@@ -192,7 +218,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          await fetchAndSetRole(currentSession.user.id);
+          // Check if role already loaded for this user
+          if (currentUserIdRef.current === currentSession.user.id && roleLoadedRef.current) {
+            setLoading(false);
+          } else {
+            await fetchAndSetRole(currentSession.user.id);
+          }
         } else {
           setLoading(false);
         }
@@ -214,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Fallback: ensure loading stops after 3 seconds max
     timeoutId = setTimeout(() => {
-      if (isMountedRef.current && !isInitializedRef.current) {
+      if (isMountedRef.current && loading) {
         console.warn('Auth initialization timeout - stopping loading spinner');
         setLoading(false);
         isInitializedRef.current = true;
@@ -243,11 +274,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [updateActivity, checkInactivity]);
 
-  // Handle visibility change - don't re-trigger auth on tab focus
+  // Handle visibility change - just update activity, don't re-auth
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Just update activity, don't re-auth
+        // Only update activity timestamp - no auth operations
         updateActivity();
       }
     };
@@ -257,10 +288,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [updateActivity]);
 
   const signIn = async (email: string, password: string) => {
-    // IMPORTANT:
-    // Don't signOut() here. It can conflict with the internal auth lock used by the SDK
-    // and cause AbortError + a stuck "Authenticating" state.
-    // Also don't fetch role here; onAuthStateChange already handles role fetch.
+    // Reset role tracking for new sign-in
+    roleLoadedRef.current = false;
+    currentUserIdRef.current = null;
+    
     if (isMountedRef.current) setLoading(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -306,6 +337,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     isInitializedRef.current = false;
+    roleLoadedRef.current = false;
+    currentUserIdRef.current = null;
     await supabase.auth.signOut();
     setUserRole(null);
     setUser(null);
