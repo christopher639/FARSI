@@ -109,9 +109,9 @@ serve(async (req) => {
       .update({ accepted_at: new Date().toISOString() })
       .eq("id", invitation.id);
 
-    // Send welcome email
-    const origin = req.headers.get("origin") || "https://farai-safari-guardian.lovable.app";
-    const loginUrl = `${origin}/login`;
+    // Send welcome email - always use the published URL for consistency
+    const publishedUrl = "https://farai-safari-guardian.lovable.app";
+    const loginUrl = `${publishedUrl}/login`;
 
     await fetch("https://api.resend.com/emails", {
       method: "POST",

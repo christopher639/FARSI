@@ -125,9 +125,9 @@ serve(async (req) => {
 
     const inviterName = inviterProfile?.full_name || "An administrator";
 
-    // Generate invitation URL
-    const origin = req.headers.get("origin") || "https://farai-safari-guardian.lovable.app";
-    const inviteUrl = `${origin}/accept-invitation?token=${token}`;
+    // Generate invitation URL - always use the published URL for consistency
+    const publishedUrl = "https://farai-safari-guardian.lovable.app";
+    const inviteUrl = `${publishedUrl}/accept-invitation?token=${token}`;
 
     // Send invitation email
     const emailResponse = await fetch("https://api.resend.com/emails", {
