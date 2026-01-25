@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, Fingerprint, Smartphone, Mail, Loader2, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Shield, Fingerprint, Smartphone, Mail, Loader2, CheckCircle, AlertCircle, ArrowRight, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startRegistration } from "@simplewebauthn/browser";
@@ -36,11 +37,17 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
     mandatoryMethod = 'any',
     preventClose = false,
   }, ref) {
-    const [step, setStep] = useState<'intro' | 'selecting' | 'setting-up' | 'success'>('intro');
+    const [step, setStep] = useState<'intro' | 'verify-email' | 'selecting' | 'setting-up' | 'success'>('intro');
     const [selectedMethod, setSelectedMethod] = useState<SetupMethod | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showTotpSetup, setShowTotpSetup] = useState(false);
+    
+    // Email OTP verification state
+    const [otpCode, setOtpCode] = useState("");
+    const [otpSent, setOtpSent] = useState(false);
+    const [emailVerified, setEmailVerified] = useState(false);
+    const [sendingOtp, setSendingOtp] = useState(false);
 
     const handleClose = () => {
       // Prevent closing without completing setup if preventClose is true
@@ -58,6 +65,10 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
       setSelectedMethod(null);
       setError(null);
       setLoading(false);
+      setOtpCode("");
+      setOtpSent(false);
+      setEmailVerified(false);
+      setSendingOtp(false);
     };
 
     const getAvailableMethods = (): SetupMethod[] => {
@@ -73,15 +84,71 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
       }
     };
 
-    const handleStartSetup = () => {
-      const methods = getAvailableMethods();
-      if (methods.length === 1) {
-        // Only one method available, go directly to setup
-        setSelectedMethod(methods[0]);
-        handleSetupMethod(methods[0]);
-      } else {
-        setStep('selecting');
+    // Send OTP to verify user owns the email
+    const sendVerificationOtp = async () => {
+      setError(null);
+      setSendingOtp(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke('send-otp', {
+          body: { email: userEmail, userId },
+        });
+
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        setOtpSent(true);
+        toast.success('Verification code sent to your email');
+      } catch (err: any) {
+        console.error('Error sending OTP:', err);
+        setError(err.message || 'Failed to send verification code');
+      } finally {
+        setSendingOtp(false);
       }
+    };
+
+    // Verify the OTP code
+    const verifyOtp = async () => {
+      if (otpCode.length !== 6) {
+        setError('Please enter the complete 6-digit code');
+        return;
+      }
+
+      setError(null);
+      setLoading(true);
+
+      try {
+        const { data, error } = await supabase.functions.invoke('verify-otp', {
+          body: { email: userEmail, code: otpCode },
+        });
+
+        if (error) throw error;
+        if (!data?.valid) throw new Error('Invalid or expired code');
+
+        setEmailVerified(true);
+        toast.success('Email verified successfully!');
+        
+        // Move to method selection
+        const methods = getAvailableMethods();
+        if (methods.length === 1) {
+          // Only one method available, go directly to setup
+          setSelectedMethod(methods[0]);
+          handleSetupMethod(methods[0]);
+        } else {
+          setStep('selecting');
+        }
+      } catch (err: any) {
+        console.error('Error verifying OTP:', err);
+        setError(err.message || 'Invalid verification code');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleStartSetup = () => {
+      // First, send email OTP for verification
+      setStep('verify-email');
+      sendVerificationOtp();
     };
 
     const handleSelectMethod = (method: SetupMethod) => {
@@ -174,6 +241,14 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
           throw new Error(verifyError?.message || "Failed to verify registration");
         }
 
+        // Also enable 2FA for consistency
+        await supabase
+          .from('profiles')
+          .update({
+            two_factor_enabled: true,
+          })
+          .eq('user_id', userId);
+
         setStep('success');
         toast.success('Biometric authentication enabled successfully!');
       } catch (err: any) {
@@ -184,7 +259,21 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
       }
     };
 
-    const handleTotpSuccess = () => {
+    const handleTotpSuccess = async () => {
+      // Enable 2FA flag when TOTP is set up
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            two_factor_enabled: true,
+            two_factor_method: 'totp',
+            totp_enabled: true,
+          })
+          .eq('user_id', userId);
+      } catch (err) {
+        console.error('Error updating 2FA status:', err);
+      }
+      
       setShowTotpSetup(false);
       setStep('success');
       toast.success('Google Authenticator enabled successfully!');
@@ -264,8 +353,99 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
                 </>
               )}
 
+              {step === 'verify-email' && (
+                <>
+                  <div className="text-center py-4">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+                      <KeyRound className="w-10 h-10 text-primary" />
+                    </div>
+                    <h3 className="font-semibold mb-2">Verify Your Identity</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {otpSent 
+                        ? `We've sent a verification code to ${userEmail}. Enter it below to proceed.`
+                        : `We'll send a verification code to ${userEmail} to confirm your identity.`
+                      }
+                    </p>
+                  </div>
+
+                  {!otpSent ? (
+                    <Button 
+                      onClick={sendVerificationOtp} 
+                      disabled={sendingOtp}
+                      className="w-full gap-2"
+                    >
+                      {sendingOtp ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Sending Code...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-4 h-4" />
+                          Send Verification Code
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex flex-col items-center gap-4">
+                        <InputOTP
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={setOtpCode}
+                        >
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                      </div>
+
+                      <Button 
+                        onClick={verifyOtp} 
+                        disabled={loading || otpCode.length !== 6}
+                        className="w-full gap-2"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Verifying...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            Verify Code
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="text-center">
+                        <button
+                          onClick={sendVerificationOtp}
+                          disabled={sendingOtp}
+                          className="text-sm text-primary hover:underline disabled:opacity-50"
+                        >
+                          {sendingOtp ? 'Sending...' : "Didn't receive the code? Resend"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
               {step === 'selecting' && (
                 <>
+                  <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    <p className="text-sm text-green-600 dark:text-green-400">
+                      Identity verified! Now choose your security method.
+                    </p>
+                  </div>
+
                   <p className="text-sm text-muted-foreground text-center">
                     Choose how you'd like to secure your account
                   </p>
@@ -333,7 +513,7 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
                     <p className="font-medium text-green-500">Security Setup Complete!</p>
                     <p className="text-sm text-muted-foreground">
                       Your account is now protected with {selectedMethod && methodConfig[selectedMethod].title.toLowerCase()}.
-                      You can now continue to the application.
+                      You will use this method to log in from now on.
                     </p>
                   </div>
                   <Button onClick={handleComplete} className="w-full gap-2">

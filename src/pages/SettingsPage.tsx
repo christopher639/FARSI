@@ -668,18 +668,9 @@ export default function SettingsPage() {
                         </div>
                       </RadioGroup>
 
-                      {/* TOTP Setup/Disable Buttons */}
-                      <div className="flex gap-2 pt-2">
-                        {!profile.totp_enabled ? (
-                          <Button 
-                            variant="outline" 
-                            onClick={() => setShowTotpSetup(true)}
-                            className="gap-2"
-                          >
-                            <Smartphone className="w-4 h-4" />
-                            Set Up Google Authenticator
-                          </Button>
-                        ) : (
+                      {/* TOTP Disable Button - Setup is done through method selection */}
+                      {profile.totp_enabled && (
+                        <div className="flex gap-2 pt-2">
                           <Button 
                             variant="outline" 
                             onClick={handleDisableTotp}
@@ -687,8 +678,8 @@ export default function SettingsPage() {
                           >
                             Disable Google Authenticator
                           </Button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
