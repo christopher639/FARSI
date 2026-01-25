@@ -174,11 +174,11 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
 
       try {
         const { data, error } = await supabase.functions.invoke('verify-otp', {
-          body: { email: userEmail, code: otpCode },
+          body: { userId, code: otpCode },
         });
 
         if (error) throw error;
-        if (!data?.valid) throw new Error('Invalid or expired code');
+        if (!data?.verified) throw new Error('Invalid or expired code');
 
         setEmailVerified(true);
         toast.success('Email verified successfully!');
