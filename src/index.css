@@ -351,4 +351,9 @@
   .light .pulse-glow {
     animation: none;
   }
+
+  /* Hide dialog close button when data-hide-close is set */
+  [data-hide-close="true"] button[class*="absolute"][class*="right-4"][class*="top-4"] {
+    display: none !important;
+  }
 }

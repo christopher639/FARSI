@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
 import { startAuthentication } from '@simplewebauthn/browser';
-import { MandatorySecuritySetupDialog } from '@/components/settings/MandatorySecuritySetupDialog';
+
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email address' }).max(255),
@@ -36,8 +36,6 @@ export default function LoginPage() {
   const [biometricMandatory, setBiometricMandatory] = useState(false);
   const [checkingBiometric, setCheckingBiometric] = useState(false);
   const [userHasBiometricEnabled, setUserHasBiometricEnabled] = useState(false);
-  const [showMandatorySetup, setShowMandatorySetup] = useState(false);
-  const [mandatoryMethod, setMandatoryMethod] = useState<string>('any');
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSystemSettings();
@@ -296,21 +294,8 @@ export default function LoginPage() {
       const hasTotpEnabled = profileData?.totp_enabled === true;
       const hasBiometricEnabled = profileData?.biometric_enabled === true;
       const twoFactorMethod = profileData?.two_factor_method || 'email';
-      const mandatory2FA = settings.security_2fa_enforcement?.mandatory;
-      const mandatoryMethodSetting = settings.security_2fa_enforcement?.method || 'any';
-
       // Store biometric status for face unlock option
       setUserHasBiometricEnabled(hasBiometricEnabled);
-
-      // Check if mandatory 2FA is required but not set up
-      if (mandatory2FA && !has2FAEnabled && !hasBiometricEnabled) {
-        await supabase.auth.signOut();
-        setPendingUserId(data.user.id);
-        setMandatoryMethod(mandatoryMethodSetting);
-        setShowMandatorySetup(true);
-        setLoading(false);
-        return;
-      }
 
       if (!has2FAEnabled) {
         // 2FA is off - check if biometric is enabled for face unlock option
@@ -545,26 +530,6 @@ export default function LoginPage() {
     }
 
     setLoading(false);
-  };
-
-  const handleMandatorySetupSuccess = async () => {
-    setShowMandatorySetup(false);
-    
-    // Now complete the login
-    setLoading(true);
-    try {
-      const { error: finalSignInError } = await signIn(email, password);
-      setLoading(false);
-
-      if (finalSignInError) {
-        setError(finalSignInError.message);
-      } else {
-        navigate('/');
-      }
-    } catch (err) {
-      setLoading(false);
-      setError('Login failed. Please try again.');
-    }
   };
 
   return (
@@ -1178,15 +1143,6 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      {/* Mandatory Security Setup Dialog */}
-      <MandatorySecuritySetupDialog
-        open={showMandatorySetup}
-        onOpenChange={setShowMandatorySetup}
-        onSuccess={handleMandatorySetupSuccess}
-        userId={pendingUserId || ''}
-        userEmail={email}
-        mandatoryMethod={mandatoryMethod}
-      />
     </div>
   );
 }
