@@ -13,8 +13,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { UserPlus, Shield, Search, Users, Mail, Send, Loader2, Edit, Trash2 } from 'lucide-react';
+import { UserPlus, Shield, Search, Users, Mail, Send, Loader2, Edit, Trash2, Clock, RefreshCw, X } from 'lucide-react';
 import { z } from 'zod';
+import { formatDistanceToNow } from 'date-fns';
 
 const createUserSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email' }).max(255),
@@ -65,20 +66,36 @@ type UserRole = {
   role: string;
 };
 
+type Invitation = {
+  id: string;
+  email: string;
+  role: string;
+  clearance_level: string;
+  department: string | null;
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  invited_by: string;
+};
+
 export default function UsersPage() {
   const { isAdmin, user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isInvitationsDialogOpen, setIsInvitationsDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [creating, setCreating] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
+  const [cancellingInvite, setCancellingInvite] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('create');
 
   // Form state for creating user
@@ -115,6 +132,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
+    fetchInvitations();
   }, []);
 
   const fetchUsers = async () => {
@@ -140,6 +158,21 @@ export default function UsersPage() {
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvitations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select('*')
+        .is('accepted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInvitations(data || []);
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
     }
   };
 
@@ -267,17 +300,77 @@ export default function UsersPage() {
         },
       });
 
-      if (response.error) throw new Error(response.error.message);
-      if (response.data?.error) throw new Error(response.data.error);
+      // Check for errors in both response.error and response.data.error
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to send invitation');
+      }
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
       
       toast.success('Invitation sent successfully!');
       setIsCreateDialogOpen(false);
       resetForm();
+      fetchInvitations();
     } catch (error: any) {
       console.error('Error sending invitation:', error);
       toast.error(error.message || 'Failed to send invitation');
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    setCancellingInvite(invitationId);
+    try {
+      const { error } = await supabase
+        .from('user_invitations')
+        .delete()
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      toast.success('Invitation cancelled');
+      fetchInvitations();
+    } catch (error: any) {
+      console.error('Error cancelling invitation:', error);
+      toast.error(error.message || 'Failed to cancel invitation');
+    } finally {
+      setCancellingInvite(null);
+    }
+  };
+
+  const handleResendInvitation = async (invitation: Invitation) => {
+    setResendingInvite(invitation.id);
+    try {
+      // First delete the old invitation
+      const { error: deleteError } = await supabase
+        .from('user_invitations')
+        .delete()
+        .eq('id', invitation.id);
+
+      if (deleteError) throw deleteError;
+
+      // Then send a new one
+      const response = await supabase.functions.invoke('send-invitation', {
+        body: {
+          email: invitation.email,
+          role: invitation.role,
+          clearanceLevel: invitation.clearance_level,
+          department: invitation.department || null,
+        },
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) throw new Error(response.data.error);
+
+      toast.success('Invitation resent successfully!');
+      fetchInvitations();
+    } catch (error: any) {
+      console.error('Error resending invitation:', error);
+      toast.error(error.message || 'Failed to resend invitation');
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -356,11 +449,18 @@ export default function UsersPage() {
     }
   };
 
+  const isInvitationExpired = (expiresAt: string) => {
+    return new Date(expiresAt) < new Date();
+  };
+
   const filteredUsers = users.filter(user =>
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (user.department && user.department.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const pendingInvitations = invitations.filter(inv => !isInvitationExpired(inv.expires_at));
+  const expiredInvitations = invitations.filter(inv => isInvitationExpired(inv.expires_at));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -376,281 +476,298 @@ export default function UsersPage() {
         </div>
 
         {isAdmin && (
-          <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
-            setIsCreateDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 w-full sm:w-auto">
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] p-0 bg-card border-primary/20 flex flex-col">
-              <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2 flex-shrink-0 border-b border-border/50">
-                <DialogTitle className="flex items-center gap-2 text-lg">
-                  <Shield className="h-5 w-5 text-primary" />
-                  Add New User
-                </DialogTitle>
-              </DialogHeader>
-              
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
-                <TabsList className="grid w-full grid-cols-2 mx-4 sm:mx-6 my-3 flex-shrink-0" style={{ width: 'calc(100% - 2rem)' }}>
-                  <TabsTrigger value="create" className="flex items-center gap-2 text-xs sm:text-sm">
-                    <UserPlus className="h-4 w-4" />
-                    <span className="hidden xs:inline">Create</span> User
-                  </TabsTrigger>
-                  <TabsTrigger value="invite" className="flex items-center gap-2 text-xs sm:text-sm">
-                    <Mail className="h-4 w-4" />
-                    <span className="hidden xs:inline">Invite</span> User
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="create" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
-                  <ScrollArea className="h-[calc(85vh-140px)] px-4 sm:px-6">
-                    <form onSubmit={handleCreateUser} className="space-y-4 pb-6">
-                      {/* Row 1: Full Name & Username */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
-                          <Input
-                            id="fullName"
-                            value={formData.fullName}
-                            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                            placeholder="John Doe"
-                            required
-                            className="bg-background/50 h-10"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="username" className="text-sm font-medium">Username</Label>
-                          <Input
-                            id="username"
-                            value={formData.username}
-                            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                            placeholder="johndoe"
-                            className="bg-background/50 h-10"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Row 2: Email & Password */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            placeholder="agent@farsi.gov"
-                            required
-                            className="bg-background/50 h-10"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
-                          <Input
-                            id="password"
-                            type="password"
-                            value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            placeholder="••••••••"
-                            required
-                            className="bg-background/50 h-10"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Row 3: Department & Badge Number */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="department" className="text-sm font-medium">Department</Label>
-                          <Input
-                            id="department"
-                            value={formData.department}
-                            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                            placeholder="Cyber Security"
-                            className="bg-background/50 h-10"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="badgeNumber" className="text-sm font-medium">Badge Number</Label>
-                          <Input
-                            id="badgeNumber"
-                            value={formData.badgeNumber}
-                            onChange={(e) => setFormData({ ...formData, badgeNumber: e.target.value })}
-                            placeholder="A-12345"
-                            className="bg-background/50 h-10"
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Row 4: Phone, Clearance & Role */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
-                          <Input
-                            id="phone"
-                            value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            placeholder="+254 700 000 000"
-                            className="bg-background/50 h-10"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="clearanceLevel" className="text-sm font-medium">Clearance Level</Label>
-                          <Select
-                            value={formData.clearanceLevel}
-                            onValueChange={(value: any) => setFormData({ ...formData, clearanceLevel: value })}
-                          >
-                            <SelectTrigger className="bg-background/50 h-10">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="unclassified">Unclassified</SelectItem>
-                              <SelectItem value="confidential">Confidential</SelectItem>
-                              <SelectItem value="secret">Secret</SelectItem>
-                              <SelectItem value="top_secret">Top Secret</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="role" className="text-sm font-medium">Role *</Label>
-                          <Select
-                            value={formData.role}
-                            onValueChange={(value: any) => setFormData({ ...formData, role: value })}
-                          >
-                            <SelectTrigger className="bg-background/50 h-10">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                              <SelectItem value="analyst">Analyst</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
-                      <p className="text-xs text-muted-foreground">
-                        Admin: Full access • Analyst: Create & edit data • Viewer: Read-only access
-                      </p>
+          <div className="flex items-center gap-2">
+            {/* Pending Invitations Button */}
+            <Button
+              variant="outline"
+              onClick={() => setIsInvitationsDialogOpen(true)}
+              className="relative"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Invitations
+              {pendingInvitations.length > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                  {pendingInvitations.length}
+                </span>
+              )}
+            </Button>
 
-                      {/* Submit Button */}
-                      <div className="pt-2">
-                        <Button 
-                          type="submit" 
-                          className="w-full h-11" 
-                          disabled={creating}
-                        >
-                          {creating ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                              Creating...
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="h-4 w-4 mr-2" />
-                              Create User
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </form>
-                  </ScrollArea>
-                </TabsContent>
-            
-                <TabsContent value="invite" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
-                  <ScrollArea className="h-[calc(85vh-140px)] px-4 sm:px-6">
-                    <form onSubmit={handleInviteUser} className="space-y-4 pb-6">
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Send an invitation email. The user will set up their own password and profile details.
-                      </p>
-                      
-                      {/* Row 1: Email & Role */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="inviteEmail">Email *</Label>
-                          <Input
-                            id="inviteEmail"
-                            type="email"
-                            value={inviteData.email}
-                            onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
-                            placeholder="user@example.com"
-                            required
-                            className="bg-background/50 h-10"
-                          />
+            <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+              setIsCreateDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] p-0 bg-card border-primary/20 flex flex-col">
+                <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2 flex-shrink-0 border-b border-border/50">
+                  <DialogTitle className="flex items-center gap-2 text-lg">
+                    <Shield className="h-5 w-5 text-primary" />
+                    Add New User
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+                  <TabsList className="grid w-full grid-cols-2 mx-4 sm:mx-6 my-3 flex-shrink-0" style={{ width: 'calc(100% - 2rem)' }}>
+                    <TabsTrigger value="create" className="flex items-center gap-2 text-xs sm:text-sm">
+                      <UserPlus className="h-4 w-4" />
+                      <span className="hidden xs:inline">Create</span> User
+                    </TabsTrigger>
+                    <TabsTrigger value="invite" className="flex items-center gap-2 text-xs sm:text-sm">
+                      <Mail className="h-4 w-4" />
+                      <span className="hidden xs:inline">Invite</span> User
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="create" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                    <ScrollArea className="h-[calc(85vh-140px)] px-4 sm:px-6">
+                      <form onSubmit={handleCreateUser} className="space-y-4 pb-6">
+                        {/* Row 1: Full Name & Username */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="fullName" className="text-sm font-medium">Full Name *</Label>
+                            <Input
+                              id="fullName"
+                              value={formData.fullName}
+                              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                              placeholder="John Doe"
+                              required
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                            <Input
+                              id="username"
+                              value={formData.username}
+                              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                              placeholder="johndoe"
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Role *</Label>
-                          <Select
-                            value={inviteData.role}
-                            onValueChange={(value: any) => setInviteData({ ...inviteData, role: value })}
+                        
+                        {/* Row 2: Email & Password */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={formData.email}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                              placeholder="agent@farsi.gov"
+                              required
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="password" className="text-sm font-medium">Password *</Label>
+                            <Input
+                              id="password"
+                              type="password"
+                              value={formData.password}
+                              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                              placeholder="••••••••"
+                              required
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Row 3: Department & Badge Number */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="department" className="text-sm font-medium">Department</Label>
+                            <Input
+                              id="department"
+                              value={formData.department}
+                              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                              placeholder="Cyber Security"
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="badgeNumber" className="text-sm font-medium">Badge Number</Label>
+                            <Input
+                              id="badgeNumber"
+                              value={formData.badgeNumber}
+                              onChange={(e) => setFormData({ ...formData, badgeNumber: e.target.value })}
+                              placeholder="A-12345"
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Row 4: Phone, Clearance & Role */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="phone" className="text-sm font-medium">Phone</Label>
+                            <Input
+                              id="phone"
+                              value={formData.phone}
+                              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                              placeholder="+254 700 000 000"
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="clearanceLevel" className="text-sm font-medium">Clearance Level</Label>
+                            <Select
+                              value={formData.clearanceLevel}
+                              onValueChange={(value: any) => setFormData({ ...formData, clearanceLevel: value })}
+                            >
+                              <SelectTrigger className="bg-background/50 h-10">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unclassified">Unclassified</SelectItem>
+                                <SelectItem value="confidential">Confidential</SelectItem>
+                                <SelectItem value="secret">Secret</SelectItem>
+                                <SelectItem value="top_secret">Top Secret</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="role" className="text-sm font-medium">Role *</Label>
+                            <Select
+                              value={formData.role}
+                              onValueChange={(value: any) => setFormData({ ...formData, role: value })}
+                            >
+                              <SelectTrigger className="bg-background/50 h-10">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="viewer">Viewer</SelectItem>
+                                <SelectItem value="analyst">Analyst</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        
+                        <p className="text-xs text-muted-foreground">
+                          Admin: Full access • Analyst: Create & edit data • Viewer: Read-only access
+                        </p>
+
+                        {/* Submit Button */}
+                        <div className="pt-2">
+                          <Button 
+                            type="submit" 
+                            className="w-full h-11" 
+                            disabled={creating}
                           >
-                            <SelectTrigger className="bg-background/50 h-10">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                              <SelectItem value="analyst">Analyst</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
+                            {creating ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                                Creating...
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Create User
+                              </>
+                            )}
+                          </Button>
                         </div>
-                      </div>
-                      
-                      {/* Row 2: Clearance & Department */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Clearance Level</Label>
-                          <Select
-                            value={inviteData.clearanceLevel}
-                            onValueChange={(value: any) => setInviteData({ ...inviteData, clearanceLevel: value })}
-                          >
-                            <SelectTrigger className="bg-background/50 h-10">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="unclassified">Unclassified</SelectItem>
-                              <SelectItem value="confidential">Confidential</SelectItem>
-                              <SelectItem value="secret">Secret</SelectItem>
-                              <SelectItem value="top_secret">Top Secret</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      </form>
+                    </ScrollArea>
+                  </TabsContent>
+              
+                  <TabsContent value="invite" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                    <ScrollArea className="h-[calc(85vh-140px)] px-4 sm:px-6">
+                      <form onSubmit={handleInviteUser} className="space-y-4 pb-6">
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Send an invitation email. The user will set up their own password and profile details.
+                        </p>
+                        
+                        {/* Row 1: Email & Role */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="inviteEmail">Email *</Label>
+                            <Input
+                              id="inviteEmail"
+                              type="email"
+                              value={inviteData.email}
+                              onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+                              placeholder="user@example.com"
+                              required
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Role *</Label>
+                            <Select
+                              value={inviteData.role}
+                              onValueChange={(value: any) => setInviteData({ ...inviteData, role: value })}
+                            >
+                              <SelectTrigger className="bg-background/50 h-10">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="viewer">Viewer</SelectItem>
+                                <SelectItem value="analyst">Analyst</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Department</Label>
-                          <Input
-                            value={inviteData.department}
-                            onChange={(e) => setInviteData({ ...inviteData, department: e.target.value })}
-                            placeholder="Cyber Security"
-                            className="bg-background/50 h-10"
-                          />
+                        
+                        {/* Row 2: Clearance & Department */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Clearance Level</Label>
+                            <Select
+                              value={inviteData.clearanceLevel}
+                              onValueChange={(value: any) => setInviteData({ ...inviteData, clearanceLevel: value })}
+                            >
+                              <SelectTrigger className="bg-background/50 h-10">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="unclassified">Unclassified</SelectItem>
+                                <SelectItem value="confidential">Confidential</SelectItem>
+                                <SelectItem value="secret">Secret</SelectItem>
+                                <SelectItem value="top_secret">Top Secret</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Department</Label>
+                            <Input
+                              value={inviteData.department}
+                              onChange={(e) => setInviteData({ ...inviteData, department: e.target.value })}
+                              placeholder="Cyber Security"
+                              className="bg-background/50 h-10"
+                            />
+                          </div>
                         </div>
-                      </div>
-                      
-                      <div className="pt-2">
-                        <Button type="submit" className="w-full h-11" disabled={inviting}>
-                          {inviting ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Sending...
-                            </>
-                          ) : (
-                            <>
-                              <Send className="h-4 w-4 mr-2" />
-                              Send Invitation
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </form>
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
-            </DialogContent>
-          </Dialog>
+                        
+                        <div className="pt-2">
+                          <Button type="submit" className="w-full h-11" disabled={inviting}>
+                            {inviting ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="h-4 w-4 mr-2" />
+                                Send Invitation
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </form>
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+              </DialogContent>
+            </Dialog>
+          </div>
         )}
       </div>
 
@@ -822,6 +939,159 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Invitations Dialog */}
+      <Dialog open={isInvitationsDialogOpen} onOpenChange={setIsInvitationsDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              Pending Invitations
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 pr-4">
+            {invitations.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No pending invitations</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Pending Invitations */}
+                {pendingInvitations.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Pending ({pendingInvitations.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {pendingInvitations.map((invitation) => (
+                        <div 
+                          key={invitation.id}
+                          className="p-4 rounded-lg border border-primary/20 bg-card/50"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{invitation.email}</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <Badge className={getRoleBadgeColor(invitation.role)}>
+                                  {invitation.role}
+                                </Badge>
+                                <Badge className={getClearanceBadgeColor(invitation.clearance_level)}>
+                                  {invitation.clearance_level.replace('_', ' ')}
+                                </Badge>
+                                {invitation.department && (
+                                  <Badge variant="outline">{invitation.department}</Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Sent {formatDistanceToNow(new Date(invitation.created_at), { addSuffix: true })} • 
+                                Expires {formatDistanceToNow(new Date(invitation.expires_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleResendInvitation(invitation)}
+                                disabled={resendingInvite === invitation.id}
+                              >
+                                {resendingInvite === invitation.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4" />
+                                )}
+                                <span className="ml-2 hidden sm:inline">Resend</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelInvitation(invitation.id)}
+                                disabled={cancellingInvite === invitation.id}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                {cancellingInvite === invitation.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <X className="h-4 w-4" />
+                                )}
+                                <span className="ml-2 hidden sm:inline">Cancel</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Expired Invitations */}
+                {expiredInvitations.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                      <X className="h-4 w-4 text-destructive" />
+                      Expired ({expiredInvitations.length})
+                    </h3>
+                    <div className="space-y-3">
+                      {expiredInvitations.map((invitation) => (
+                        <div 
+                          key={invitation.id}
+                          className="p-4 rounded-lg border border-destructive/20 bg-destructive/5 opacity-75"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{invitation.email}</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <Badge className={getRoleBadgeColor(invitation.role)}>
+                                  {invitation.role}
+                                </Badge>
+                                <Badge variant="destructive">Expired</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Expired {formatDistanceToNow(new Date(invitation.expires_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleResendInvitation(invitation)}
+                                disabled={resendingInvite === invitation.id}
+                              >
+                                {resendingInvite === invitation.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-4 w-4" />
+                                )}
+                                <span className="ml-2 hidden sm:inline">Resend</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelInvitation(invitation.id)}
+                                disabled={cancellingInvite === invitation.id}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                {cancellingInvite === invitation.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <X className="h-4 w-4" />
+                                )}
+                                <span className="ml-2 hidden sm:inline">Delete</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
