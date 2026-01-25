@@ -1,0 +1,360 @@
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Shield, Fingerprint, Smartphone, Mail, Loader2, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { startRegistration } from "@simplewebauthn/browser";
+import { TotpSetupDialog } from "./TotpSetupDialog";
+
+type SetupMethod = 'totp' | 'biometric' | 'email';
+
+interface MandatorySecuritySetupDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+  userId: string;
+  userEmail: string;
+  mandatoryMethod?: string; // 'email' | 'totp' | 'biometric' | 'any'
+}
+
+export function MandatorySecuritySetupDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  userId,
+  userEmail,
+  mandatoryMethod = 'any',
+}: MandatorySecuritySetupDialogProps) {
+  const [step, setStep] = useState<'intro' | 'selecting' | 'setting-up' | 'success'>('intro');
+  const [selectedMethod, setSelectedMethod] = useState<SetupMethod | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showTotpSetup, setShowTotpSetup] = useState(false);
+
+  const handleClose = () => {
+    // Prevent closing without completing setup
+    if (step === 'success') {
+      onOpenChange(false);
+      resetState();
+    }
+  };
+
+  const resetState = () => {
+    setStep('intro');
+    setSelectedMethod(null);
+    setError(null);
+    setLoading(false);
+  };
+
+  const getAvailableMethods = (): SetupMethod[] => {
+    switch (mandatoryMethod) {
+      case 'email':
+        return ['email'];
+      case 'totp':
+        return ['totp'];
+      case 'biometric':
+        return ['biometric'];
+      default:
+        return ['email', 'totp', 'biometric'];
+    }
+  };
+
+  const handleStartSetup = () => {
+    const methods = getAvailableMethods();
+    if (methods.length === 1) {
+      // Only one method available, go directly to setup
+      setSelectedMethod(methods[0]);
+      handleSetupMethod(methods[0]);
+    } else {
+      setStep('selecting');
+    }
+  };
+
+  const handleSelectMethod = (method: SetupMethod) => {
+    setSelectedMethod(method);
+    handleSetupMethod(method);
+  };
+
+  const handleSetupMethod = async (method: SetupMethod) => {
+    setError(null);
+    setLoading(true);
+    setStep('setting-up');
+
+    try {
+      switch (method) {
+        case 'email':
+          // Enable email 2FA
+          const { error: emailError } = await supabase
+            .from('profiles')
+            .update({
+              two_factor_enabled: true,
+              two_factor_method: 'email',
+            })
+            .eq('user_id', userId);
+
+          if (emailError) throw emailError;
+          
+          setStep('success');
+          toast.success('Email 2FA enabled successfully!');
+          break;
+
+        case 'totp':
+          // Show TOTP setup dialog
+          setShowTotpSetup(true);
+          setLoading(false);
+          break;
+
+        case 'biometric':
+          await setupBiometric();
+          break;
+      }
+    } catch (err: any) {
+      console.error('Setup error:', err);
+      setError(err.message || 'Failed to set up security method');
+      setStep('selecting');
+    } finally {
+      if (method !== 'totp') {
+        setLoading(false);
+      }
+    }
+  };
+
+  const setupBiometric = async () => {
+    try {
+      // Check if platform authenticator is available
+      if (!window.PublicKeyCredential) {
+        throw new Error("Your browser doesn't support biometric authentication");
+      }
+
+      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      if (!available) {
+        throw new Error("No biometric authenticator found on this device");
+      }
+
+      // Get registration options from server
+      const { data: optionsData, error: optionsError } = await supabase.functions.invoke('webauthn-register-options');
+
+      if (optionsError || !optionsData?.options) {
+        throw new Error(optionsError?.message || "Failed to get registration options");
+      }
+
+      // Prepare options
+      const options = {
+        ...optionsData.options,
+        challenge: optionsData.challenge,
+        user: {
+          ...optionsData.options.user,
+          id: optionsData.options.user.id,
+        },
+      };
+
+      // Start WebAuthn registration
+      const credential = await startRegistration({ optionsJSON: options });
+
+      // Verify registration with server
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('webauthn-register-verify', {
+        body: { credential, makeMandatory: false },
+      });
+
+      if (verifyError || !verifyData?.success) {
+        throw new Error(verifyError?.message || "Failed to verify registration");
+      }
+
+      setStep('success');
+      toast.success('Biometric authentication enabled successfully!');
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') {
+        throw new Error("Biometric authentication was cancelled. Please try again.");
+      }
+      throw err;
+    }
+  };
+
+  const handleTotpSuccess = () => {
+    setShowTotpSetup(false);
+    setStep('success');
+    toast.success('Google Authenticator enabled successfully!');
+  };
+
+  const handleComplete = () => {
+    onSuccess();
+    onOpenChange(false);
+    resetState();
+  };
+
+  const methodConfig = {
+    email: {
+      icon: Mail,
+      title: 'Email OTP',
+      description: 'Receive a verification code via email each time you log in',
+    },
+    totp: {
+      icon: Smartphone,
+      title: 'Authenticator App',
+      description: 'Use Google Authenticator or similar apps for codes',
+    },
+    biometric: {
+      icon: Fingerprint,
+      title: 'Biometric Login',
+      description: 'Use Face ID, Touch ID, or Windows Hello',
+    },
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-lg" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Security Configuration Required
+            </DialogTitle>
+            <DialogDescription>
+              Your organization requires additional security measures for your account
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {step === 'intro' && (
+              <>
+                <Alert className="bg-amber-500/10 border-amber-500/30">
+                  <Shield className="h-4 w-4 text-amber-500" />
+                  <AlertDescription className="text-amber-600 dark:text-amber-400">
+                    Your organization has made multi-factor authentication mandatory. 
+                    Please set up a security method to continue using this application.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="text-center py-4">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+                    <Shield className="w-10 h-10 text-primary" />
+                  </div>
+                  <h3 className="font-semibold mb-2">Secure Your Account</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Adding a second factor of authentication helps protect your account 
+                    from unauthorized access.
+                  </p>
+                </div>
+
+                <Button onClick={handleStartSetup} className="w-full gap-2">
+                  Get Started
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+
+            {step === 'selecting' && (
+              <>
+                <p className="text-sm text-muted-foreground text-center">
+                  Choose how you'd like to secure your account
+                </p>
+
+                <div className="space-y-3">
+                  {getAvailableMethods().map((method) => {
+                    const config = methodConfig[method];
+                    const Icon = config.icon;
+                    
+                    return (
+                      <Button
+                        key={method}
+                        type="button"
+                        variant="outline"
+                        className="w-full h-auto py-4 flex items-center gap-4 hover:border-primary hover:bg-primary/5"
+                        onClick={() => handleSelectMethod(method)}
+                        disabled={loading}
+                      >
+                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10">
+                          <Icon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div className="text-left flex-1">
+                          <div className="font-medium">{config.title}</div>
+                          <div className="text-sm text-muted-foreground">{config.description}</div>
+                        </div>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {step === 'setting-up' && (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+                  {selectedMethod && (() => {
+                    const Icon = methodConfig[selectedMethod].icon;
+                    return <Icon className="w-10 h-10 text-primary" />;
+                  })()}
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="font-medium">Setting up {selectedMethod && methodConfig[selectedMethod].title}...</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedMethod === 'biometric' && "Follow your device's prompts to complete setup"}
+                    {selectedMethod === 'email' && "Enabling email verification..."}
+                    {selectedMethod === 'totp' && "Preparing authenticator setup..."}
+                  </p>
+                </div>
+                {loading && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Please wait...</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 'success' && (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle className="w-10 h-10 text-green-500" />
+                </div>
+                <div className="text-center space-y-2">
+                  <p className="font-medium text-green-500">Security Setup Complete!</p>
+                  <p className="text-sm text-muted-foreground">
+                    Your account is now protected with {selectedMethod && methodConfig[selectedMethod].title.toLowerCase()}.
+                    You can now continue to the application.
+                  </p>
+                </div>
+                <Button onClick={handleComplete} className="w-full gap-2">
+                  Continue to Application
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* TOTP Setup Dialog */}
+      <TotpSetupDialog
+        open={showTotpSetup}
+        onOpenChange={(open) => {
+          setShowTotpSetup(open);
+          if (!open) {
+            // If closed without completing, go back to selection
+            setStep('selecting');
+            setLoading(false);
+          }
+        }}
+        userId={userId}
+        onSuccess={handleTotpSuccess}
+      />
+    </>
+  );
+}
