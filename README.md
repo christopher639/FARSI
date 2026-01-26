@@ -245,7 +245,7 @@ npm run build
 
 ## License & Contributing
 
-This project is part of the NIRU AI Initiative. For contributions and inquiries, please reach out to the development team.
+This project is part of the NIRU AI Initiative purposely for the National AI hackathon . For contributions and inquiries, please reach out to the development team.
 
 ---
 
