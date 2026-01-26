@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { TotpSetupDialog } from "@/components/settings/TotpSetupDialog";
 import { BiometricSetupDialog } from "@/components/settings/BiometricSetupDialog";
 import { SecurityConfirmDialog } from "@/components/settings/SecurityConfirmDialog";
+import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
 
 const settingsSections = [
   { icon: User, label: "Profile", id: "profile" },
@@ -27,6 +28,8 @@ const settingsSections = [
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  // Add this line to enable real-time notifications for the current user
+  useRealtimeNotifications(user?.id);
   const [activeSection, setActiveSection] = useState("profile");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
