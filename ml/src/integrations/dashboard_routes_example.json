@@ -1,0 +1,8 @@
+{
+  "heatmap": "GET /ml/heatmap",
+  "alerts": "GET /simulate/alerts",
+  "predict": "POST /ml/predict",
+  "nlp_entities": "POST /nlp/entities",
+  "nlp_classify": "POST /nlp/classify",
+  "cv_motion": "POST /cv/motion"
+}

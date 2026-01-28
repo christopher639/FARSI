@@ -23,7 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Python artifacts
+__pycache__/
+*.py[cod]
+
 # Testing UI
-ml
-# ml/dashboard
-# ml/package-lock.json
+ml/dashboard
+ml/package-lock.json
