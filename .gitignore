@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Testing UI
+ml
+# ml/dashboard
+# ml/package-lock.json
