@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from "react-leaflet";
 import { MapPin, RefreshCw, Layers } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -255,11 +255,19 @@ export function ThreatHeatmap() {
                     radius={5}
                     pathOptions={{ color: "#22c55e", fillColor: "#22c55e", fillOpacity: 0.7 }}
                   >
+                    <Tooltip direction="top" offset={[0, -6]} opacity={1}>
+                      <div className="text-xs">
+                        <div className="font-semibold">{r.crimeType}</div>
+                        <div>Lat: {r.latitude.toFixed(5)}, Lng: {r.longitude.toFixed(5)}</div>
+                        {r.location && <div>{r.location}</div>}
+                      </div>
+                    </Tooltip>
                     <Popup>
                       <div className="text-xs">
                         <div className="font-semibold">{r.crimeType}</div>
                         {r.location && <div>{r.location}</div>}
                         {r.month && <div>Month: {r.month}</div>}
+                        <div>Lat: {r.latitude.toFixed(5)}, Lng: {r.longitude.toFixed(5)}</div>
                       </div>
                     </Popup>
                   </CircleMarker>

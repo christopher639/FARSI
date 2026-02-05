@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python/ML
+.env
+.env.*
+models/
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+
