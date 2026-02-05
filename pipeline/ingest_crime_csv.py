@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from pymongo import UpdateOne
 
-from .mongo_client import get_collection
+from .mongo_client import ensure_collection, get_collection
 
 
 def make_record_hash(row: dict) -> str:
@@ -58,6 +58,7 @@ def ingest_csv(csv_path: str) -> int:
             "coordinates": [float(r["longitude"]), float(r["latitude"])],
         }
 
+    ensure_collection()
     collection = get_collection()
 
     # Indexes
