@@ -11,6 +11,8 @@
 - [System Architecture](#system-architecture)
 - [Key Features](#key-features)
 - [Data Protection & Ethics](#data-protection--ethics)
+- [Security by Design](#security-by-design)
+- [Data Provenance & Language](#data-provenance--language)
 - [Impact & Relevance](#impact--relevance)
 - [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
@@ -129,6 +131,25 @@ FARSI is built with a **Privacy-by-Design** approach:
 
 ---
 
+## Security by Design
+
+Backend setup is prioritized before finalizing the frontend. Core controls include:
+- Secrets management and environment variable hygiene
+- Least-privilege access for services and databases
+- Role-based access control (RBAC) with audit logging
+
+See `SECURITY_BACKEND_PLAN.md` for the implementation plan.
+
+---
+
+## Data Provenance & Language
+
+FARSI maintains provenance metadata for every record and inference, including source system, timestamps, transformations, and model versions. Language coverage explicitly includes Swahili and code-switched Sheng, with a normalization layer and Kenyan-specific evaluation datasets.
+
+See `SECURITY_BACKEND_PLAN.md` for details.
+
+---
+
 ## Impact & Relevance
 
 ### Security, Safety, and Policing Focus
@@ -213,6 +234,11 @@ npm install
 **Install Python/Jupyter Dependencies:**
 ```bash
 python -m pip install -r requirements.txt
+```
+
+**Run Backend (FastAPI):**
+```bash
+uvicorn backend.app.main:app --reload --port 8000
 ```
 
 **Run Jupyter Notebook for Data Analysis:**

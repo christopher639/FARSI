@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
+import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building } from "lucide-react";
@@ -50,6 +51,7 @@ const dataStatusColors = {
 
 export default function DataFusionPage() {
   const { agencies, loading, refetch } = useAgencies();
+  const { events, loading: eventsLoading, error: eventsError } = useBackendEvents();
   const { isAdmin } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -510,6 +512,52 @@ export default function DataFusionPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Backend Ingestion Events */}
+      <div className="bg-card border border-panel-border rounded-lg">
+        <div className="p-4 border-b border-panel-border flex items-center justify-between">
+          <h2 className="font-semibold">Recent Ingestion Events (Backend)</h2>
+          <Badge variant="outline" className="text-xs">MongoDB</Badge>
+        </div>
+        {eventsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
+        ) : eventsError ? (
+          <div className="p-4 text-sm text-muted-foreground">
+            Backend unavailable: {eventsError}
+          </div>
+        ) : events.length === 0 ? (
+          <div className="p-4 text-sm text-muted-foreground">
+            No ingestion events found yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-panel-border">
+            {events.map((event) => (
+              <div key={event.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-medium">{event.title}</span>
+                    <Badge variant="outline" className="text-xs">{event.event_type}</Badge>
+                    <Badge className="text-xs bg-muted">{event.modality}</Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground line-clamp-2">
+                    {event.description || "No description"}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Source: {event.provenance.source_system}
+                    {event.provenance.source_agency ? ` • ${event.provenance.source_agency}` : ""}
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

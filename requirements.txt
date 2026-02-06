@@ -1,3 +1,9 @@
 pandas
 plotly
 notebook
+fastapi
+uvicorn
+pymongo
+python-multipart
+pyjwt
+passlib[bcrypt]

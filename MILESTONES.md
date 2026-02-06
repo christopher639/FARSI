@@ -1,9 +1,5 @@
 # FARSI Project Milestones
 
-This document outlines the major milestones, tasks, deliverables, and success criteria for the FARSI (Forensic Analysis Real-Time Security Intelligence System) project, as described in the README.
-
----
-
 ## Milestone 1: Project Initialization & Architecture
 
 **Tasks:**
@@ -31,15 +27,26 @@ This document outlines the major milestones, tasks, deliverables, and success cr
 - Integrate structured, unstructured, and multimedia data sources
 - Set up database schemas (PostgreSQL, MongoDB, etc.)
 - Develop data anonymization and privacy controls
+- Implement environment variable and secrets management
+- Define RBAC roles, permissions, and audit logging
+- Establish data provenance and lineage metadata
+- Add multi-modal ingestion pipeline (CCTV/audio/image)
 
 **Deliverables:**
 - Data ingestion endpoints
 - Working data fusion hub
 - Data privacy and anonymization features
+- Secrets management plan + env template
+- RBAC policy matrix + audit log design
+- Provenance schema and dataset versioning approach
+- Multi-modal ingestion design (batch + streaming)
 
 **Success Criteria:**
 - Data from multiple sources is ingested and unified
 - Privacy controls are enforced and tested
+- Secrets are not stored in code, and access is least-privilege
+- RBAC is implemented and tested with role-based permissions
+- Each dataset and inference result has provenance metadata
 
 ---
 
