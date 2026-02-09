@@ -2,8 +2,10 @@ import argparse
 import hashlib
 import os
 import pandas as pd
+from postgrest.exceptions import APIError
 
 from .config import get_supabase_config
+from .errors import raise_with_migration_hint
 from .supabase_client import get_supabase_client
 
 
@@ -50,6 +52,12 @@ def ingest_csv(csv_path: str) -> int:
 
     records = df.to_dict(orient="records")
 
+    # Supabase JSON payloads cannot contain NaN/NaT values.
+    for r in records:
+        for k, v in list(r.items()):
+            if pd.isna(v):
+                r[k] = None
+
     for r in records:
         r["record_hash"] = make_record_hash(r)
         # GeoJSON for geospatial queries
@@ -68,7 +76,10 @@ def ingest_csv(csv_path: str) -> int:
     chunk_size = 500
     for i in range(0, len(records), chunk_size):
         chunk = records[i : i + chunk_size]
-        result = supabase.table(cfg.table).upsert(chunk, on_conflict="record_hash").execute()
+        try:
+            result = supabase.table(cfg.table).upsert(chunk, on_conflict="record_hash").execute()
+        except APIError as exc:
+            raise_with_migration_hint(exc, cfg.table)
         inserted += len(result.data or [])
     return inserted
 

@@ -1,8 +1,10 @@
 import argparse
 import os
 import pandas as pd
+from postgrest.exceptions import APIError
 
 from .config import get_supabase_config
+from .errors import raise_with_migration_hint
 from .supabase_client import get_supabase_client
 
 
@@ -12,6 +14,10 @@ def import_csv(csv_path: str, table: str | None = None, chunk_size: int = 500) -
 
     df = pd.read_csv(csv_path)
     records = df.to_dict(orient="records")
+    for r in records:
+        for k, v in list(r.items()):
+            if pd.isna(v):
+                r[k] = None
     if not records:
         return 0
 
@@ -22,7 +28,10 @@ def import_csv(csv_path: str, table: str | None = None, chunk_size: int = 500) -
 
     for i in range(0, len(records), chunk_size):
         chunk = records[i : i + chunk_size]
-        result = supabase.table(target_table).insert(chunk).execute()
+        try:
+            result = supabase.table(target_table).insert(chunk).execute()
+        except APIError as exc:
+            raise_with_migration_hint(exc, target_table)
         inserted += len(result.data or [])
 
     return inserted
@@ -40,7 +49,10 @@ def export_csv(output_path: str, table: str | None = None, limit: int | None = N
 
     while True:
         batch_size = page_size if remaining is None else min(page_size, remaining)
-        result = supabase.table(target_table).select("*").range(offset, offset + batch_size - 1).execute()
+        try:
+            result = supabase.table(target_table).select("*").range(offset, offset + batch_size - 1).execute()
+        except APIError as exc:
+            raise_with_migration_hint(exc, target_table)
         data = result.data or []
         if not data:
             break

@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 import joblib
+from postgrest.exceptions import APIError
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_validate
 from sklearn.compose import ColumnTransformer
@@ -17,6 +18,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 
 from .config import get_supabase_config
+from .errors import raise_with_migration_hint
 from .supabase_client import get_supabase_client
 from .feature_engineering import clean_and_engineer
 
@@ -36,7 +38,10 @@ def load_from_supabase(limit: int | None = None) -> pd.DataFrame:
 
     while True:
         batch_size = page_size if remaining is None else min(page_size, remaining)
-        result = supabase.table(cfg.table).select(select_fields).range(offset, offset + batch_size - 1).execute()
+        try:
+            result = supabase.table(cfg.table).select(select_fields).range(offset, offset + batch_size - 1).execute()
+        except APIError as exc:
+            raise_with_migration_hint(exc, cfg.table)
         data = result.data or []
         if not data:
             break

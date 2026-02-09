@@ -3,10 +3,12 @@ import io
 from datetime import datetime, timezone
 
 from PIL import Image
+from postgrest.exceptions import APIError
 from supabase import Client, create_client
 from transformers import pipeline
 
 from .config import get_supabase_config
+from .errors import raise_with_migration_hint
 
 
 def get_client() -> Client:
@@ -41,16 +43,19 @@ def ensure_model(supabase: Client, name: str, version: str, model_type: str, fra
 def run_worker(limit: int = 20) -> int:
     supabase = get_client()
 
-    events = (
-        supabase.table("ingestion_events")
-        .select("*")
-        .is_("processed_at", "null")
-        .order("created_at", desc=False)
-        .limit(limit)
-        .execute()
-        .data
-        or []
-    )
+    try:
+        events = (
+            supabase.table("ingestion_events")
+            .select("*")
+            .is_("processed_at", "null")
+            .order("created_at", desc=False)
+            .limit(limit)
+            .execute()
+            .data
+            or []
+        )
+    except APIError as exc:
+        raise_with_migration_hint(exc, "ingestion_events")
 
     if not events:
         return 0

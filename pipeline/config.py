@@ -14,8 +14,10 @@ class SupabaseConfig:
 
 
 def get_supabase_config() -> SupabaseConfig:
-    url = os.getenv("SUPABASE_URL", "")
+    url = os.getenv("SUPABASE_URL", "") or os.getenv("VITE_SUPABASE_URL", "")
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not key and os.getenv("APP_ENV", "local") == "local":
+        key = os.getenv("SUPABASE_ANON_KEY", "") or os.getenv("VITE_SUPABASE_PUBLISHABLE_KEY", "")
     table = os.getenv("SUPABASE_CRIME_TABLE", "crime_events")
     if not url or not key:
         raise ValueError("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set. Add it to .env")
