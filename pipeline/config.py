@@ -16,9 +16,17 @@ class SupabaseConfig:
 def get_supabase_config() -> SupabaseConfig:
     url = os.getenv("SUPABASE_URL", "") or os.getenv("VITE_SUPABASE_URL", "")
     key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-    if not key and os.getenv("APP_ENV", "local") == "local":
-        key = os.getenv("SUPABASE_ANON_KEY", "") or os.getenv("VITE_SUPABASE_PUBLISHABLE_KEY", "")
     table = os.getenv("SUPABASE_CRIME_TABLE", "crime_events")
-    if not url or not key:
-        raise ValueError("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set. Add it to .env")
+    if not url:
+        raise ValueError(
+            "SUPABASE_URL is not set. "
+            "Add SUPABASE_URL to your environment or .env file."
+        )
+    if not key:
+        raise ValueError(
+            "SUPABASE_SERVICE_ROLE_KEY is not set. "
+            "Pipeline writes require the service-role key to bypass RLS. "
+            "Add SUPABASE_SERVICE_ROLE_KEY to your environment or .env file. "
+            "Do NOT use the anon/publishable key — it will be blocked by RLS."
+        )
     return SupabaseConfig(url=url, service_role_key=key, table=table)
