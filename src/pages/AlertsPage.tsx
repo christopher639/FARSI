@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useThreatAlerts } from "@/hooks/useThreatAlerts";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiPost, apiPut, apiDelete, apiPatch } from "@/lib/api";
 import { Bell, Filter, Download, CheckCircle, AlertTriangle, XCircle, Plus, Loader2, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -108,17 +108,14 @@ export default function AlertsPage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase.from("threat_alerts").insert({
+      await apiPost("/alerts", {
         title: formData.title,
         description: formData.description || null,
         location: formData.location || null,
         severity: formData.severity,
         source: formData.source || null,
-        created_by: user.id,
         status: "new",
       });
-
-      if (error) throw error;
 
       toast.success("Alert created successfully");
       setIsCreateDialogOpen(false);
@@ -144,18 +141,14 @@ export default function AlertsPage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase
-        .from("threat_alerts")
-        .update({
-          title: formData.title,
-          description: formData.description || null,
-          location: formData.location || null,
-          severity: formData.severity,
-          source: formData.source || null,
-        })
-        .eq("id", editingAlert.id);
-
-      if (error) throw error;
+      await apiPut(`/alerts/${editingAlert.id}`, {
+        title: formData.title,
+        description: formData.description || null,
+        location: formData.location || null,
+        severity: formData.severity,
+        source: formData.source || null,
+        status: editingAlert.status,
+      });
 
       toast.success("Alert updated successfully");
       setIsEditDialogOpen(false);
@@ -172,12 +165,7 @@ export default function AlertsPage() {
 
   const handleDeleteAlert = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("threat_alerts")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await apiDelete(`/alerts/${id}`);
       toast.success("Alert deleted");
       refetch();
     } catch (error: any) {
@@ -187,12 +175,7 @@ export default function AlertsPage() {
 
   const handleUpdateStatus = async (alertId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("threat_alerts")
-        .update({ status: newStatus as any })
-        .eq("id", alertId);
-
-      if (error) throw error;
+      await apiPatch(`/alerts/${alertId}/status`, { status: newStatus });
       toast.success(`Alert marked as ${newStatus}`);
       refetch();
     } catch (error: any) {

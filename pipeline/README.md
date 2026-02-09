@@ -1,12 +1,12 @@
-# MongoDB Data Engineering Pipeline
+# Supabase Data Engineering Pipeline
 
 ## 1. Configure Environment
 Create a `.env` file in the repo root with:
 
 ```
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.dqwp2.mongodb.net/
-MONGODB_DB=FARSI
-MONGODB_COLLECTION=crime_events
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_CRIME_TABLE=crime_events
 ```
 
 ## 2. Install Dependencies
@@ -15,16 +15,35 @@ MONGODB_COLLECTION=crime_events
 python -m pip install -r requirements.txt
 ```
 
-## 3. Ingest CSV to MongoDB
+## 3. Ingest CSV to Supabase
 
 ```
 python -m pipeline.ingest_crime_csv --csv data/crime/2025-11-avon-and-somerset-street.csv
 ```
 
-## 4. Train Model from MongoDB
+## 4. Train Model from Supabase
 
 ```
 python -m pipeline.train_crime_model --output-dir models
+```
+
+## 5. Import/Export Utility
+
+```
+python -m pipeline.supabase_io import --csv data/crime/2025-11-avon-and-somerset-street.csv --table crime_events
+python -m pipeline.supabase_io export --out data/exports/crime_events.csv --table crime_events
+```
+
+## 6. ML Inference Worker (Realtime/Batch)
+
+```
+python -m pipeline.ml_inference_worker --limit 50
+```
+
+## 7. Continuous Inference Worker (Cron-like)
+
+```
+python -m pipeline.continuous_inference_worker --interval 60 --limit 50
 ```
 
 Outputs:

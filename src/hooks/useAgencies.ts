@@ -1,8 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import { apiGet } from '@/lib/api';
 
-type Agency = Tables<'connected_agencies'>;
+type Agency = {
+  id: string;
+  code: string;
+  contact_email?: string | null;
+  contact_person?: string | null;
+  contact_phone?: string | null;
+  created_at: string;
+  description?: string | null;
+  name: string;
+  status?: string | null;
+  updated_at: string;
+};
 
 export function useAgencies() {
   const [agencies, setAgencies] = useState<Agency[]>([]);
@@ -12,12 +23,7 @@ export function useAgencies() {
   const fetchAgencies = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('connected_agencies')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
+      const data = await apiGet<Agency[]>('/agencies');
       setAgencies(data || []);
     } catch (err: any) {
       setError(err.message);

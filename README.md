@@ -184,9 +184,7 @@ Early warnings and enhanced situational awareness reduce risk to personnel and i
 - **shadcn-ui** – Component library
 - **Tailwind CSS** – Styling
 
-### Backend & Data Engineering
-- **Python** (FastAPI / Django)
-- **PostgreSQL** – Database
+### Backend & Data Engineering\r\n- **Python** (FastAPI)\r\n- **Supabase (PostgreSQL)** – Primary Database
 - **Elasticsearch** – Search & analytics
 - **Apache Kafka** – Event streaming
 
@@ -236,9 +234,34 @@ npm install
 python -m pip install -r requirements.txt
 ```
 
+**Environment Variables:**
+```
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+VITE_API_BASE_URL=http://localhost:8000
+```
+
 **Run Backend (FastAPI):**
 ```bash
 uvicorn backend.app.main:app --reload --port 8000
+```
+
+**Run Supabase Migrations (local):**
+```bash
+supabase migration up
+```
+
+**Run ML Inference Worker (batch + realtime processing):**
+```bash
+python -m pipeline.ml_inference_worker --limit 50
+```
+
+**Run Continuous Inference Worker (cron-like):**
+```bash
+python -m pipeline.continuous_inference_worker --interval 60 --limit 50
 ```
 
 **Run Jupyter Notebook for Data Analysis:**
@@ -276,3 +299,6 @@ This project is part of the NIRU AI Initiative purposely for the National AI hac
 ---
 
 **Last Updated:** January 2026
+
+
+

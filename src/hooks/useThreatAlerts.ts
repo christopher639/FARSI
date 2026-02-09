@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import { apiGet } from '@/lib/api';
 
-type ThreatAlert = Tables<'threat_alerts'>;
+type ThreatAlert = {
+  id: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  severity?: string | null;
+  status?: string | null;
+  source?: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 export function useThreatAlerts() {
   const [alerts, setAlerts] = useState<ThreatAlert[]>([]);
@@ -12,13 +22,7 @@ export function useThreatAlerts() {
   const fetchAlerts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('threat_alerts')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
+      const data = await apiGet<ThreatAlert[]>('/alerts');
       setAlerts(data || []);
     } catch (err: any) {
       setError(err.message);

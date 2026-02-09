@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Network, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { apiGet } from "@/lib/api";
 
 interface Node {
   id: string;
@@ -10,7 +12,20 @@ interface Node {
   threat: boolean;
 }
 
-const nodes: Node[] = [
+interface GraphNode {
+  id: string;
+  label: string;
+  entity_type: string;
+  metadata?: { x?: number; y?: number; threat?: boolean };
+}
+
+interface GraphEdge {
+  id: string;
+  source_id: string;
+  target_id: string;
+}
+
+const fallbackNodes: Node[] = [
   { id: '1', label: 'SUBJECT-A', type: 'person', x: 50, y: 30, connections: ['2', '3', '5'], threat: true },
   { id: '2', label: 'ORG-X', type: 'organization', x: 25, y: 50, connections: ['1', '4'], threat: false },
   { id: '3', label: 'SUBJECT-B', type: 'person', x: 75, y: 45, connections: ['1', '6'], threat: true },
@@ -27,6 +42,44 @@ const nodeStyles = {
 };
 
 export function NetworkGraph() {
+  const [nodes, setNodes] = useState<Node[]>(fallbackNodes);
+
+  useEffect(() => {
+    const loadGraph = async () => {
+      try {
+        const [nodesData, edgesData] = await Promise.all([
+          apiGet<GraphNode[]>("/graph/nodes"),
+          apiGet<GraphEdge[]>("/graph/edges"),
+        ]);
+
+        if (!nodesData?.length) return;
+
+        const edgesBySource = new Map<string, string[]>();
+        edgesData.forEach((e) => {
+          const list = edgesBySource.get(e.source_id) || [];
+          list.push(e.target_id);
+          edgesBySource.set(e.source_id, list);
+        });
+
+        const mapped: Node[] = nodesData.map((n, idx) => ({
+          id: n.id,
+          label: n.label,
+          type: (n.entity_type as Node["type"]) || "person",
+          x: n.metadata?.x ?? (idx * 13) % 90 + 5,
+          y: n.metadata?.y ?? (idx * 17) % 90 + 5,
+          connections: edgesBySource.get(n.id) || [],
+          threat: Boolean(n.metadata?.threat),
+        }));
+
+        setNodes(mapped);
+      } catch {
+        setNodes(fallbackNodes);
+      }
+    };
+
+    loadGraph();
+  }, []);
+
   return (
     <div className="panel-glow flex flex-col h-full">
       {/* Header */}

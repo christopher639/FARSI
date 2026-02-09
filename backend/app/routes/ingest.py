@@ -1,12 +1,11 @@
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from ..config import settings
-from ..db import get_db
 from ..deps import require_ingestor
+from ..supabase_client import get_supabase
 
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -23,8 +22,8 @@ def ingest_text(
     modality: str = Form("text"),
     _: str = Depends(require_ingestor),
 ):
-    db = get_db()
-    now = datetime.now(timezone.utc)
+    supabase = get_supabase()
+    now = datetime.now(timezone.utc).isoformat()
     doc: dict[str, Any] = {
         "event_type": event_type,
         "title": title,
@@ -43,18 +42,18 @@ def ingest_text(
         },
         "created_at": now,
     }
-    result = db["events"].insert_one(doc)
-    db["audit_logs"].insert_one(
+    created = supabase.table("ingestion_events").insert(doc).execute().data[0]
+    supabase.table("audit_logs").insert(
         {
             "actor": "ingest",
             "role": "ingestor",
             "action": "ingest.text",
-            "target": str(result.inserted_id),
+            "target": created["id"],
             "metadata": {"source_system": source_system},
             "created_at": now,
         }
-    )
-    return {"status": "ingested", "event_id": str(result.inserted_id)}
+    ).execute()
+    return {"status": "ingested", "event_id": created["id"]}
 
 
 @router.post("/media")
@@ -67,20 +66,23 @@ def ingest_media(
     modality: str = Form("cctv"),
     _: str = Depends(require_ingestor),
 ):
-    db = get_db()
-    now = datetime.now(timezone.utc)
-    Path(settings.media_storage_dir).mkdir(parents=True, exist_ok=True)
-    filename = f"{int(now.timestamp())}_{media.filename}"
-    file_path = Path(settings.media_storage_dir) / filename
-    with file_path.open("wb") as f:
-        f.write(media.file.read())
+    supabase = get_supabase()
+    now = datetime.now(timezone.utc).isoformat()
+    filename = f"{int(datetime.now(timezone.utc).timestamp())}_{media.filename}"
+    file_bytes = media.file.read()
+    supabase.storage.from_(settings.media_bucket).upload(
+        filename,
+        file_bytes,
+        {"content-type": media.content_type or "application/octet-stream"},
+    )
+    storage_path = f"{settings.media_bucket}/{filename}"
 
     doc: dict[str, Any] = {
         "event_type": event_type,
         "title": title,
         "description": None,
         "modality": modality,
-        "media_path": str(file_path),
+        "media_path": storage_path,
         "provenance": {
             "source_system": source_system,
             "source_agency": source_agency,
@@ -94,15 +96,15 @@ def ingest_media(
         },
         "created_at": now,
     }
-    result = db["events"].insert_one(doc)
-    db["audit_logs"].insert_one(
+    created = supabase.table("ingestion_events").insert(doc).execute().data[0]
+    supabase.table("audit_logs").insert(
         {
             "actor": "ingest",
             "role": "ingestor",
             "action": "ingest.media",
-            "target": str(result.inserted_id),
-            "metadata": {"source_system": source_system, "media_path": str(file_path)},
+            "target": created["id"],
+            "metadata": {"source_system": source_system, "media_path": storage_path},
             "created_at": now,
         }
-    )
-    return {"status": "ingested", "event_id": str(result.inserted_id), "media_path": str(file_path)}
+    ).execute()
+    return {"status": "ingested", "event_id": created["id"], "media_path": storage_path}

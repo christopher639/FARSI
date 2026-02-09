@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNetworkData } from "@/hooks/useNetworkData";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiPost, apiDelete } from "@/lib/api";
 import { NetworkGraph } from "@/components/dashboard/NetworkGraph";
 import { Search, Filter, ZoomIn, ZoomOut, Maximize2, Plus, AlertTriangle, Activity, Server, Globe, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,7 @@ export default function NetworkAnalysisPage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase.from("network_analysis_data").insert({
+      await apiPost("/network", {
         source_ip: formData.source_ip,
         destination_ip: formData.destination_ip || null,
         protocol: formData.protocol,
@@ -87,8 +87,6 @@ export default function NetworkAnalysisPage() {
         threat_type: formData.threat_detected ? formData.threat_type : null,
         payload_summary: formData.payload_summary || null,
       });
-
-      if (error) throw error;
 
       toast.success("Network entry created successfully");
       setIsCreateDialogOpen(false);
@@ -113,12 +111,7 @@ export default function NetworkAnalysisPage() {
 
   const handleDeleteEntry = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("network_analysis_data")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await apiDelete(`/network/${id}`);
       toast.success("Entry deleted");
       refetch();
     } catch (error: any) {

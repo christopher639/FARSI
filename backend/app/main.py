@@ -1,13 +1,29 @@
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .db import get_db
-from .routes import agencies, audit, auth, events, ingest, rbac
-from .security import hash_password
+from .routes import (
+    agencies,
+    alerts,
+    audit,
+    auth,
+    communications,
+    events,
+    export_data,
+    graph,
+    heatmap,
+    hooks,
+    inference,
+    ingest,
+    models_registry,
+    network,
+    rbac,
+    reports,
+    stats,
+    surveillance,
+)
 
 
 def create_app() -> FastAPI:
@@ -25,31 +41,24 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(agencies.router)
     app.include_router(events.router)
+    app.include_router(export_data.router)
     app.include_router(ingest.router)
     app.include_router(audit.router)
     app.include_router(rbac.router)
-
-    @app.on_event("startup")
-    def _startup() -> None:
-        db = get_db()
-        Path(settings.media_storage_dir).mkdir(parents=True, exist_ok=True)
-        if settings.admin_email and settings.admin_password:
-            existing = db["users"].find_one({"email": settings.admin_email})
-            if not existing:
-                db["users"].insert_one(
-                    {
-                        "email": settings.admin_email,
-                        "password_hash": hash_password(settings.admin_password),
-                        "role": "admin",
-                        "status": "active",
-                        "created_at": datetime.now(timezone.utc),
-                    }
-                )
+    app.include_router(alerts.router)
+    app.include_router(reports.router)
+    app.include_router(stats.router)
+    app.include_router(surveillance.router)
+    app.include_router(communications.router)
+    app.include_router(network.router)
+    app.include_router(models_registry.router)
+    app.include_router(inference.router)
+    app.include_router(heatmap.router)
+    app.include_router(graph.router)
+    app.include_router(hooks.router)
 
     @app.get("/health")
     def health() -> dict:
-        db = get_db()
-        db.command("ping")
         return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
 
     return app

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useIntelligenceReports } from "@/hooks/useIntelligenceReports";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiPost, apiPut, apiDelete } from "@/lib/api";
 import { FileText, Search, Filter, Download, Plus, Clock, User, Tag, Loader2, Edit, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,16 +103,13 @@ export default function IntelligenceReportsPage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase.from("intelligence_reports").insert({
+      await apiPost("/reports", {
         title: formData.title,
         content: formData.content || null,
         source: formData.source || null,
         category: formData.category || null,
         classification: formData.classification,
-        author_id: user.id,
       });
-
-      if (error) throw error;
 
       toast.success("Report created successfully");
       setIsCreateDialogOpen(false);
@@ -138,18 +135,14 @@ export default function IntelligenceReportsPage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase
-        .from("intelligence_reports")
-        .update({
-          title: formData.title,
-          content: formData.content || null,
-          source: formData.source || null,
-          category: formData.category || null,
-          classification: formData.classification,
-        })
-        .eq("id", editingReport.id);
-
-      if (error) throw error;
+      await apiPut(`/reports/${editingReport.id}`, {
+        title: formData.title,
+        content: formData.content || null,
+        source: formData.source || null,
+        category: formData.category || null,
+        classification: formData.classification,
+        author_id: editingReport.author_id,
+      });
 
       toast.success("Report updated successfully");
       setIsEditDialogOpen(false);
@@ -166,12 +159,7 @@ export default function IntelligenceReportsPage() {
 
   const handleDeleteReport = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("intelligence_reports")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await apiDelete(`/reports/${id}`);
       toast.success("Report deleted");
       refetch();
     } catch (error: any) {

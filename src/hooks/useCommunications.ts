@@ -1,8 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import { apiGet } from '@/lib/api';
 
-type Communication = Tables<'communications_monitoring'>;
+type Communication = {
+  id: string;
+  channel_type: string;
+  sender?: string | null;
+  recipient?: string | null;
+  content_summary?: string | null;
+  priority?: string | null;
+  flagged?: boolean | null;
+  related_alert_id?: string | null;
+  timestamp: string;
+  created_at: string;
+};
 
 export function useCommunications() {
   const [communications, setCommunications] = useState<Communication[]>([]);
@@ -12,13 +23,7 @@ export function useCommunications() {
   const fetchCommunications = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('communications_monitoring')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
+      const data = await apiGet<Communication[]>('/communications');
       setCommunications(data || []);
     } catch (err: any) {
       setError(err.message);

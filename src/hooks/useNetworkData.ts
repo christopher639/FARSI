@@ -1,8 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import { apiGet } from '@/lib/api';
 
-type NetworkData = Tables<'network_analysis_data'>;
+type NetworkData = {
+  id: string;
+  timestamp: string;
+  source_ip?: string | null;
+  destination_ip?: string | null;
+  protocol?: string | null;
+  port?: number | null;
+  bytes_transferred?: number | null;
+  threat_detected?: boolean | null;
+  threat_type?: string | null;
+  payload_summary?: string | null;
+  created_at: string;
+};
 
 export function useNetworkData() {
   const [networkData, setNetworkData] = useState<NetworkData[]>([]);
@@ -12,13 +24,7 @@ export function useNetworkData() {
   const fetchNetworkData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('network_analysis_data')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
+      const data = await apiGet<NetworkData[]>('/network');
       setNetworkData(data || []);
     } catch (err: any) {
       setError(err.message);

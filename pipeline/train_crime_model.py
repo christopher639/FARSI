@@ -16,33 +16,38 @@ from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 
-from .mongo_client import get_collection
+from .config import get_supabase_config
+from .supabase_client import get_supabase_client
 from .feature_engineering import clean_and_engineer
 
 
-def load_from_mongo(limit: int | None = None) -> pd.DataFrame:
-    collection = get_collection()
-    cursor = collection.find(
-        {},
-        {
-            "crime_type": 1,
-            "month": 1,
-            "location": 1,
-            "latitude": 1,
-            "longitude": 1,
-            "reported_by": 1,
-            "falls_within": 1,
-            "lsoa_code": 1,
-            "lsoa_name": 1,
-            "last_outcome_category": 1,
-            "context": 1,
-            "crime_id": 1,
-        },
+def load_from_supabase(limit: int | None = None) -> pd.DataFrame:
+    cfg = get_supabase_config()
+    supabase = get_supabase_client()
+    select_fields = (
+        "crime_type,month,location,latitude,longitude,reported_by,falls_within,"
+        "lsoa_code,lsoa_name,last_outcome_category,context,crime_id"
     )
-    if limit:
-        cursor = cursor.limit(limit)
-    data = list(cursor)
-    return pd.DataFrame(data)
+
+    records = []
+    page_size = 1000
+    offset = 0
+    remaining = limit if limit else None
+
+    while True:
+        batch_size = page_size if remaining is None else min(page_size, remaining)
+        result = supabase.table(cfg.table).select(select_fields).range(offset, offset + batch_size - 1).execute()
+        data = result.data or []
+        if not data:
+            break
+        records.extend(data)
+        offset += batch_size
+        if remaining is not None:
+            remaining -= batch_size
+            if remaining <= 0:
+                break
+
+    return pd.DataFrame(records)
 
 
 def build_pipeline(preprocessor, k: int, model):
@@ -56,7 +61,7 @@ def build_pipeline(preprocessor, k: int, model):
 
 
 def train_and_save(output_dir: str, limit: int | None = None) -> dict:
-    df = load_from_mongo(limit=limit)
+    df = load_from_supabase(limit=limit)
     df = clean_and_engineer(df)
 
     target = "crime_type"
@@ -167,7 +172,7 @@ def train_and_save(output_dir: str, limit: int | None = None) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train crime type model from MongoDB")
+    parser = argparse.ArgumentParser(description="Train crime type model from Supabase")
     parser.add_argument("--output-dir", default="models", help="Output directory")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of records")
     args = parser.parse_args()

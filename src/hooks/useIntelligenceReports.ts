@@ -1,8 +1,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import { apiGet } from '@/lib/api';
 
-type IntelligenceReport = Tables<'intelligence_reports'>;
+type IntelligenceReport = {
+  id: string;
+  title: string;
+  content?: string | null;
+  classification?: string | null;
+  category?: string | null;
+  source?: string | null;
+  author_id?: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 export function useIntelligenceReports() {
   const [reports, setReports] = useState<IntelligenceReport[]>([]);
@@ -12,13 +22,7 @@ export function useIntelligenceReports() {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('intelligence_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
+      const data = await apiGet<IntelligenceReport[]>('/reports');
       setReports(data || []);
     } catch (err: any) {
       setError(err.message);

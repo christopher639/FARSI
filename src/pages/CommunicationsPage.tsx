@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useCommunications } from "@/hooks/useCommunications";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiPost, apiPut } from "@/lib/api";
 import { Radio, MessageSquare, Phone, Send, Users, Signal, Lock, Plus, Flag, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,7 +78,7 @@ export default function CommunicationsPage() {
     setCreating(true);
     try {
       const isFlagged = formData.priority === "critical" || formData.priority === "high";
-      const { error } = await supabase.from("communications_monitoring").insert({
+      await apiPost("/communications", {
         channel_type: formData.channel_type,
         sender: formData.sender || null,
         recipient: formData.recipient || null,
@@ -86,8 +86,6 @@ export default function CommunicationsPage() {
         priority: formData.priority,
         flagged: isFlagged,
       });
-
-      if (error) throw error;
 
       toast.success("Communication logged successfully");
       setIsCreateDialogOpen(false);
@@ -111,14 +109,12 @@ export default function CommunicationsPage() {
     if (!newMessage.trim()) return;
 
     try {
-      const { error } = await supabase.from("communications_monitoring").insert({
+      await apiPost("/communications", {
         channel_type: "secure",
         sender: user?.email?.split("@")[0] || "Unknown",
         content_summary: newMessage,
         priority: "medium",
       });
-
-      if (error) throw error;
 
       setNewMessage("");
       refetch();
@@ -129,12 +125,7 @@ export default function CommunicationsPage() {
 
   const handleFlagMessage = async (id: string, currentFlagged: boolean) => {
     try {
-      const { error } = await supabase
-        .from("communications_monitoring")
-        .update({ flagged: !currentFlagged })
-        .eq("id", id);
-
-      if (error) throw error;
+      await apiPut(`/communications/${id}`, { flagged: !currentFlagged });
       toast.success(currentFlagged ? "Message unflagged" : "Message flagged");
       refetch();
     } catch (error: any) {

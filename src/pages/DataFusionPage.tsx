@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiPost, apiPut, apiDelete } from "@/lib/api";
 import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +91,7 @@ export default function DataFusionPage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase.from("connected_agencies").insert({
+      await apiPost("/agencies", {
         name: formData.name,
         code: formData.code.toUpperCase(),
         description: formData.description || null,
@@ -100,8 +100,6 @@ export default function DataFusionPage() {
         contact_email: formData.contact_email || null,
         contact_phone: formData.contact_phone || null,
       });
-
-      if (error) throw error;
 
       toast.success("Agency created successfully");
       setIsCreateDialogOpen(false);
@@ -127,20 +125,15 @@ export default function DataFusionPage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase
-        .from("connected_agencies")
-        .update({
-          name: formData.name,
-          code: formData.code.toUpperCase(),
-          description: formData.description || null,
-          status: formData.status,
-          contact_person: formData.contact_person || null,
-          contact_email: formData.contact_email || null,
-          contact_phone: formData.contact_phone || null,
-        })
-        .eq("id", editingAgency.id);
-
-      if (error) throw error;
+      await apiPut(`/agencies/${editingAgency.id}`, {
+        name: formData.name,
+        code: formData.code.toUpperCase(),
+        description: formData.description || null,
+        status: formData.status,
+        contact_person: formData.contact_person || null,
+        contact_email: formData.contact_email || null,
+        contact_phone: formData.contact_phone || null,
+      });
 
       toast.success("Agency updated successfully");
       setIsEditDialogOpen(false);
@@ -157,12 +150,7 @@ export default function DataFusionPage() {
 
   const handleDeleteAgency = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("connected_agencies")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await apiDelete(`/agencies/${id}`);
       toast.success("Agency deleted");
       refetch();
     } catch (error: any) {
@@ -518,7 +506,7 @@ export default function DataFusionPage() {
       <div className="bg-card border border-panel-border rounded-lg">
         <div className="p-4 border-b border-panel-border flex items-center justify-between">
           <h2 className="font-semibold">Recent Ingestion Events (Backend)</h2>
-          <Badge variant="outline" className="text-xs">MongoDB</Badge>
+          <Badge variant="outline" className="text-xs">Supabase</Badge>
         </div>
         {eventsLoading ? (
           <div className="flex items-center justify-center py-8">

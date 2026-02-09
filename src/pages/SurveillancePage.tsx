@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSurveillanceLogs } from "@/hooks/useSurveillanceLogs";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { apiPost, apiPut, apiDelete } from "@/lib/api";
 import { Eye, Video, Camera, MapPin, Clock, Plus, Loader2, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -90,15 +90,13 @@ export default function SurveillancePage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase.from("surveillance_logs").insert({
+      await apiPost("/surveillance/logs", {
         event_type: formData.event_type,
         subject: formData.subject || null,
         location: formData.location || null,
         event_description: formData.event_description || null,
         recorded_by: user.id,
       });
-
-      if (error) throw error;
 
       toast.success("Surveillance log created");
       setIsCreateDialogOpen(false);
@@ -124,17 +122,12 @@ export default function SurveillancePage() {
 
     setCreating(true);
     try {
-      const { error } = await supabase
-        .from("surveillance_logs")
-        .update({
-          event_type: formData.event_type,
-          subject: formData.subject || null,
-          location: formData.location || null,
-          event_description: formData.event_description || null,
-        })
-        .eq("id", editingLog.id);
-
-      if (error) throw error;
+      await apiPut(`/surveillance/logs/${editingLog.id}`, {
+        event_type: formData.event_type,
+        subject: formData.subject || null,
+        location: formData.location || null,
+        event_description: formData.event_description || null,
+      });
 
       toast.success("Surveillance log updated");
       setIsEditDialogOpen(false);
@@ -151,12 +144,7 @@ export default function SurveillancePage() {
 
   const handleDeleteLog = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("surveillance_logs")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      await apiDelete(`/surveillance/logs/${id}`);
       toast.success("Surveillance log deleted");
       refetch();
     } catch (error: any) {

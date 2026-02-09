@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface BackendEvent {
   id: string;
@@ -35,6 +36,18 @@ export function useBackendEvents() {
 
   useEffect(() => {
     fetchEvents();
+    const channel = supabase
+      .channel("ingestion_events_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ingestion_events" },
+        () => fetchEvents()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { events, loading, error, refetch: fetchEvents };

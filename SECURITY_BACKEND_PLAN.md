@@ -8,6 +8,7 @@ Local development:
 - Use `.env` for local only. Keep `.env` out of version control.
 - Maintain `.env.example` with non-sensitive placeholders.
 - Use separate env files per environment (local, dev, staging, prod).
+- For Supabase, use `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` for backend services.
 
 Production:
 - Store secrets in a secrets manager (cloud KMS or Vault-like system).
@@ -52,6 +53,7 @@ Processing pipeline:
 Fusion:
 - Normalize outputs into a unified event schema (time, location, entities, confidence).
 - Store embeddings and metadata in a feature store for search and linking.
+- Use Supabase Realtime for live UI updates, with batch ML workers for enrichment.
 
 ## 4) Data Provenance and Lineage
 

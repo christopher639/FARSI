@@ -1,27 +1,60 @@
+import requests
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import settings
 from .rbac import role_has_permission
-from .security import decode_token, hash_api_key
-from .db import get_db
+from .security import hash_api_key
+from .supabase_client import get_supabase
 
 
 security = HTTPBearer(auto_error=False)
 
 
-def get_current_role(
+def _fetch_user_from_token(token: str) -> dict | None:
+    if not settings.supabase_anon_key:
+        return None
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "apikey": settings.supabase_anon_key,
+    }
+    url = f"{settings.supabase_url}/auth/v1/user"
+    response = requests.get(url, headers=headers, timeout=5)
+    if response.status_code != 200:
+        return None
+    return response.json()
+
+
+def _fetch_user_role(user_id: str) -> str | None:
+    client = get_supabase()
+    result = client.table("user_roles").select("role").eq("user_id", user_id).execute()
+    roles = [r.get("role") for r in (result.data or []) if r.get("role")]
+    if not roles:
+        return None
+    if "admin" in roles:
+        return "admin"
+    if "analyst" in roles:
+        return "analyst"
+    return roles[0]
+
+
+def get_current_user(
     request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(security),
-) -> str | None:
+) -> dict | None:
     if creds is None:
         return None
     token = creds.credentials
-    try:
-        payload = decode_token(token)
-        return payload.get("role")
-    except Exception:
+    return _fetch_user_from_token(token)
+
+
+def get_current_role(
+    user: dict | None = Depends(get_current_user),
+) -> str | None:
+    if not user:
         return None
+    role = _fetch_user_role(user.get("id"))
+    return role or None
 
 
 def require_permission(permission: str):
@@ -67,8 +100,3 @@ def require_ingestor(
     if api_key_role:
         return api_key_role
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="insufficient_permissions")
-
-
-def get_user_by_email(email: str):
-    db = get_db()
-    return db["users"].find_one({"email": email})

@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
+import { apiGet } from "@/lib/api";
 
 const CSV_URL = "/data/crime/2025-11-avon-and-somerset-street.csv";
 const SUPABASE_TABLE = import.meta.env.VITE_CRIME_SUPABASE_TABLE || "crime_events";
@@ -17,9 +18,10 @@ type CrimeRecord = {
   crimeType: string;
   month?: string;
   location?: string;
+  score?: number;
 };
 
-type DataSource = "csv" | "supabase";
+type DataSource = "csv" | "supabase" | "backend";
 
 type MapView = "heatmap" | "points";
 
@@ -110,12 +112,24 @@ export function ThreatHeatmap() {
     return cleaned;
   };
 
+  const loadFromBackend = async () => {
+    const data = await apiGet<Array<{ lat: number; lon: number; score: number }>>("/heatmap");
+    const cleaned: CrimeRecord[] = (data || []).map((row) => ({
+      latitude: Number(row.lat),
+      longitude: Number(row.lon),
+      crimeType: "Heatmap Cell",
+      score: row.score,
+    }));
+    return cleaned;
+  };
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const loaded = source === "supabase" ? await loadFromSupabase() : await loadFromCsv();
+      const loaded =
+        source === "supabase" ? await loadFromSupabase() : source === "backend" ? await loadFromBackend() : await loadFromCsv();
       setRecords(loaded);
     } catch (err: any) {
       setError(err?.message || "Failed to load crime data");
@@ -145,7 +159,7 @@ export function ThreatHeatmap() {
   );
 
   const heatPoints = useMemo(
-    () => filtered.map((r) => [r.latitude, r.longitude, 1] as [number, number, number]),
+    () => filtered.map((r) => [r.latitude, r.longitude, r.score ?? 1] as [number, number, number]),
     [filtered]
   );
 
@@ -181,6 +195,7 @@ export function ThreatHeatmap() {
             <option value="supabase" disabled={!supabaseEnabled}>
               Supabase {supabaseEnabled ? "" : "(not configured)"}
             </option>
+            <option value="backend">Backend Heatmap</option>
           </select>
 
           <label className="text-muted-foreground ml-2">View</label>

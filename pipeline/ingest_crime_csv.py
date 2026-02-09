@@ -2,9 +2,9 @@ import argparse
 import hashlib
 import os
 import pandas as pd
-from pymongo import UpdateOne
 
-from .mongo_client import ensure_collection, get_collection
+from .config import get_supabase_config
+from .supabase_client import get_supabase_client
 
 
 def make_record_hash(row: dict) -> str:
@@ -58,29 +58,23 @@ def ingest_csv(csv_path: str) -> int:
             "coordinates": [float(r["longitude"]), float(r["latitude"])],
         }
 
-    ensure_collection()
-    collection = get_collection()
-
-    # Indexes
-    collection.create_index([("geo", "2dsphere")])
-    collection.create_index("record_hash", unique=True)
-    collection.create_index("crime_type")
-
-    ops = [
-        UpdateOne({"record_hash": r["record_hash"]}, {"$setOnInsert": r}, upsert=True)
-        for r in records
-    ]
-
-    if not ops:
+    if not records:
         return 0
 
-    result = collection.bulk_write(ops, ordered=False)
-    inserted = result.upserted_count
+    supabase = get_supabase_client()
+    cfg = get_supabase_config()
+    inserted = 0
+
+    chunk_size = 500
+    for i in range(0, len(records), chunk_size):
+        chunk = records[i : i + chunk_size]
+        result = supabase.table(cfg.table).upsert(chunk, on_conflict="record_hash").execute()
+        inserted += len(result.data or [])
     return inserted
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ingest crime CSV into MongoDB")
+    parser = argparse.ArgumentParser(description="Ingest crime CSV into Supabase")
     parser.add_argument(
         "--csv",
         default="data/crime/2025-11-avon-and-somerset-street.csv",

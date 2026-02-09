@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Tables } from '@/integrations/supabase/types';
+import { apiGet } from '@/lib/api';
 
-type SurveillanceLog = Tables<'surveillance_logs'>;
+type SurveillanceLog = {
+  id: string;
+  event_type: string;
+  event_description?: string | null;
+  location?: string | null;
+  subject?: string | null;
+  timestamp: string;
+  recorded_by?: string | null;
+};
 
 export function useSurveillanceLogs() {
   const [logs, setLogs] = useState<SurveillanceLog[]>([]);
@@ -12,13 +20,7 @@ export function useSurveillanceLogs() {
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('surveillance_logs')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
+      const data = await apiGet<SurveillanceLog[]>('/surveillance/logs');
       setLogs(data || []);
     } catch (err: any) {
       setError(err.message);

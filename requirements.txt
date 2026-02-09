@@ -3,7 +3,13 @@ plotly
 notebook
 fastapi
 uvicorn
-pymongo
 python-multipart
-pyjwt
-passlib[bcrypt]
+supabase
+requests
+python-dotenv
+transformers
+torch
+Pillow
+scikit-learn
+numpy
+sentencepiece
