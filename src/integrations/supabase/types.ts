@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          role: string | null
+          target: string | null
+        }
+        Insert: {
+          action: string
+          actor: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string | null
+          target?: string | null
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          role?: string | null
+          target?: string | null
+        }
+        Relationships: []
+      }
       communications_monitoring: {
         Row: {
           channel_type: string
@@ -100,6 +130,180 @@ export type Database = {
         }
         Relationships: []
       }
+      crime_events: {
+        Row: {
+          context: string | null
+          created_at: string
+          crime_id: string | null
+          crime_type: string | null
+          falls_within: string | null
+          geo: Json | null
+          id: string
+          last_outcome_category: string | null
+          latitude: number | null
+          location: string | null
+          longitude: number | null
+          lsoa_code: string | null
+          lsoa_name: string | null
+          month: string | null
+          record_hash: string | null
+          reported_by: string | null
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          crime_id?: string | null
+          crime_type?: string | null
+          falls_within?: string | null
+          geo?: Json | null
+          id?: string
+          last_outcome_category?: string | null
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
+          lsoa_code?: string | null
+          lsoa_name?: string | null
+          month?: string | null
+          record_hash?: string | null
+          reported_by?: string | null
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          crime_id?: string | null
+          crime_type?: string | null
+          falls_within?: string | null
+          geo?: Json | null
+          id?: string
+          last_outcome_category?: string | null
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
+          lsoa_code?: string | null
+          lsoa_name?: string | null
+          month?: string | null
+          record_hash?: string | null
+          reported_by?: string | null
+        }
+        Relationships: []
+      }
+      entity_edges: {
+        Row: {
+          created_at: string
+          id: string
+          properties: Json | null
+          relationship: string | null
+          source_id: string | null
+          target_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          properties?: Json | null
+          relationship?: string | null
+          source_id?: string | null
+          target_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          properties?: Json | null
+          relationship?: string | null
+          source_id?: string | null
+          target_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_edges_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "entity_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_edges_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "entity_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_nodes: {
+        Row: {
+          created_at: string
+          entity_type: string | null
+          id: string
+          label: string
+          properties: Json | null
+        }
+        Insert: {
+          created_at?: string
+          entity_type?: string | null
+          id?: string
+          label: string
+          properties?: Json | null
+        }
+        Update: {
+          created_at?: string
+          entity_type?: string | null
+          id?: string
+          label?: string
+          properties?: Json | null
+        }
+        Relationships: []
+      }
+      ingestion_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          entities: Json | null
+          event_type: string
+          id: string
+          last_inference_at: string | null
+          location: Json | null
+          media_path: string | null
+          modality: string | null
+          processed_at: string | null
+          provenance: Json | null
+          severity: string | null
+          tags: string[] | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          entities?: Json | null
+          event_type: string
+          id?: string
+          last_inference_at?: string | null
+          location?: Json | null
+          media_path?: string | null
+          modality?: string | null
+          processed_at?: string | null
+          provenance?: Json | null
+          severity?: string | null
+          tags?: string[] | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          entities?: Json | null
+          event_type?: string
+          id?: string
+          last_inference_at?: string | null
+          location?: Json | null
+          media_path?: string | null
+          modality?: string | null
+          processed_at?: string | null
+          provenance?: Json | null
+          severity?: string | null
+          tags?: string[] | null
+          title?: string
+        }
+        Relationships: []
+      }
       intelligence_reports: {
         Row: {
           author_id: string
@@ -166,6 +370,75 @@ export type Database = {
           location?: string | null
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      ml_inference_results: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          id: string
+          model_id: string | null
+          result: Json
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          model_id?: string | null
+          result: Json
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          model_id?: string | null
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ml_inference_results_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ingestion_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ml_inference_results_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "ml_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ml_models: {
+        Row: {
+          created_at: string
+          framework: string
+          id: string
+          metadata: Json | null
+          model_type: string
+          name: string
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          framework: string
+          id?: string
+          metadata?: Json | null
+          model_type: string
+          name: string
+          version: string
+        }
+        Update: {
+          created_at?: string
+          framework?: string
+          id?: string
+          metadata?: Json | null
+          model_type?: string
+          name?: string
+          version?: string
         }
         Relationships: []
       }
@@ -380,6 +653,41 @@ export type Database = {
         }
         Relationships: []
       }
+      surveillance_frames: {
+        Row: {
+          captured_at: string
+          created_at: string
+          detections: Json | null
+          id: string
+          storage_path: string | null
+          stream_id: string | null
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          detections?: Json | null
+          id?: string
+          storage_path?: string | null
+          stream_id?: string | null
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          detections?: Json | null
+          id?: string
+          storage_path?: string | null
+          stream_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surveillance_frames_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "surveillance_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       surveillance_logs: {
         Row: {
           created_at: string
@@ -423,6 +731,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      surveillance_streams: {
+        Row: {
+          created_at: string
+          id: string
+          last_heartbeat: string | null
+          name: string
+          rtsp_url: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_heartbeat?: string | null
+          name: string
+          rtsp_url?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_heartbeat?: string | null
+          name?: string
+          rtsp_url?: string | null
+          status?: string | null
+        }
+        Relationships: []
       }
       system_settings: {
         Row: {
@@ -493,6 +828,36 @@ export type Database = {
           status?: Database["public"]["Enums"]["alert_status"] | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      threat_heatmap_cells: {
+        Row: {
+          created_at: string
+          id: string
+          lat: number
+          lon: number
+          score: number
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lat: number
+          lon: number
+          score: number
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lat?: number
+          lon?: number
+          score?: number
+          window_end?: string
+          window_start?: string
         }
         Relationships: []
       }
