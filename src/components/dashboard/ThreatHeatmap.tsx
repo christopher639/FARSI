@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from "react-leaflet";
-import { MapPin, RefreshCw, Layers, AlertTriangle } from "lucide-react";
+import { MapPin, RefreshCw, Layers, AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
@@ -84,6 +84,19 @@ function HeatmapLayer({ points }: { points: Array<[number, number, number]> }) {
   return null;
 }
 
+function ResizeMap({ trigger }: { trigger: boolean }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [map, trigger]);
+
+  return null;
+}
+
 function parseAreaFromLsoa(lsoaName?: string) {
   if (!lsoaName) return "Unknown";
   const match = lsoaName.match(/^(.*?)\s+Ward\s+\d+/i);
@@ -132,7 +145,7 @@ function riskColor(tier: AreaRisk["tier"]) {
 
 export function ThreatHeatmap() {
   const [source, setSource] = useState<DataSource>(DEFAULT_SOURCE);
-  const [view, setView] = useState<MapView>("heatmap");
+  const [view, setView] = useState<MapView>("points");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<CrimeRecord[]>([]);
@@ -140,6 +153,7 @@ export function ThreatHeatmap() {
   const [selectedArea, setSelectedArea] = useState<string>("All");
   const [refreshing, setRefreshing] = useState(false);
   const [showRiskOverlay, setShowRiskOverlay] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const loadFromCsv = async () => {
     const res = await fetch(CSV_URL);
@@ -337,7 +351,13 @@ export function ThreatHeatmap() {
   const supabaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL);
 
   return (
-    <div className="panel-glow flex flex-col h-full">
+    <div
+      className={
+        isExpanded
+          ? "panel-glow fixed inset-0 z-[80] flex flex-col bg-background rounded-none border-0"
+          : "panel-glow flex flex-col h-full"
+      }
+    >
       <div className="flex flex-col gap-3 p-4 border-b border-panel-border lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
@@ -415,6 +435,14 @@ export function ThreatHeatmap() {
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
           </button>
 
+          <button
+            onClick={() => setIsExpanded((v) => !v)}
+            className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            title={isExpanded ? "Minimize map panel" : "Expand map panel"}
+          >
+            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
           <div className="flex items-center gap-1 text-muted-foreground ml-2">
             <Layers className="w-3 h-3" />
             <span>{filtered.length} incidents</span>
@@ -423,11 +451,12 @@ export function ThreatHeatmap() {
       </div>
 
       <div className="flex-1 p-4 space-y-4 overflow-auto">
-        <div className="h-[420px] rounded-lg overflow-hidden border border-panel-border">
+        <div className={`${isExpanded ? "h-[calc(100vh-160px)]" : "h-[420px]"} rounded-lg overflow-hidden border border-panel-border`}>
           {loading && <div className="h-full flex items-center justify-center text-muted-foreground">Loading crime data...</div>}
           {!loading && error && <div className="h-full flex items-center justify-center text-destructive">{error}</div>}
           {!loading && !error && (
             <MapContainer className="h-full w-full" center={[0.0236, 37.9062]} zoom={6} scrollWheelZoom>
+              <ResizeMap trigger={isExpanded} />
               <TileLayer
                 attribution="&copy; OpenStreetMap contributors"
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
