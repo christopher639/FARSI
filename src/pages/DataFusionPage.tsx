@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiPost } from "@/lib/api";
+import { apiPost, apiPostForm } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import Papa from "papaparse";
 import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building } from "lucide-react";
@@ -212,8 +212,37 @@ export default function DataFusionPage() {
             ? `${agency.name} connected. Pipeline: ${stages.join(" -> ")}`
             : `${agency.name} connected`
         );
+
+        // Bootstrap an initial dataset on connect to start real ingestion immediately.
+        try {
+          const response = await fetch("/data/crime/2025-11-kenya-simulated-street.csv", { cache: "no-store" });
+          if (!response.ok) throw new Error(`Failed to load bootstrap CSV (${response.status})`);
+          const blob = await response.blob();
+          const file = new File([blob], `${String(agency.code || "agency").toLowerCase()}-bootstrap.csv`, {
+            type: "text/csv",
+          });
+
+          const formData = new FormData();
+          formData.append("csv_file", file);
+          formData.append("source_system", `agency_feed_${String(agency.code || "unknown").toLowerCase()}`);
+          formData.append("source_agency", agency.name);
+
+          const ingest = await apiPostForm<{
+            inserted: number;
+            total_rows: number;
+            invalid_rows: number;
+          }>("/ingest/crime-csv", formData);
+          toast.success(
+            `${agency.name} feed ingested: ${Number(ingest?.inserted || 0).toLocaleString()} records`
+          );
+        } catch (bootstrapError: any) {
+          toast.error(
+            bootstrapError?.message ||
+              `Connected ${agency.name}, but bootstrap ingest failed. You can import manually from Data Fusion.`
+          );
+        }
       }
-      await Promise.all([refetch(), refetchEvents()]);
+      await Promise.all([refetch(), refetchEvents(), fetchCrimeCount()]);
     } catch (error: any) {
       toast.error(error.message || "Failed to change agency connection");
     }
