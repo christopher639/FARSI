@@ -21,6 +21,8 @@ python -m pip install -r requirements.txt
 python -m pipeline.ingest_crime_csv --csv data/crime/2025-11-kenya-simulated-street.csv
 ```
 
+The ingestor normalizes common header variants (for example `crime_type`, `Crime Type`, `LAT`, `lng`, `outcome`) into the project schema.
+
 ### Generate Kenya-Simulated CSV (Avon-compatible schema)
 
 ```

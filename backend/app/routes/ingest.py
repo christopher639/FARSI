@@ -13,6 +13,43 @@ from ..supabase_client import get_supabase
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
+CANONICAL_ALIASES = {
+    "crime_type": ["crime type", "crime_type", "type"],
+    "month": ["month", "report_month"],
+    "location": ["location", "place", "incident_location"],
+    "longitude": ["longitude", "lon", "lng", "long"],
+    "latitude": ["latitude", "lat"],
+    "reported_by": ["reported by", "reported_by", "reporting_agency"],
+    "falls_within": ["falls within", "falls_within", "jurisdiction"],
+    "lsoa_code": ["lsoa code", "lsoa_code", "ward_code", "area_code"],
+    "lsoa_name": ["lsoa name", "lsoa_name", "ward_name", "area_name", "county_name"],
+    "last_outcome_category": ["last outcome category", "last_outcome_category", "outcome", "case_outcome"],
+    "crime_id": ["crime id", "crime_id", "incident_id", "id"],
+    "context": ["context", "notes", "description"],
+}
+
+REQUIRED_CANONICAL = ["crime_type", "month", "location", "longitude", "latitude"]
+
+
+def _normalize_header(name: str) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(name)).strip("_")
+
+
+def _build_header_lookup(fieldnames: list[str] | None) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for name in fieldnames or []:
+        lookup[_normalize_header(name)] = name
+    return lookup
+
+
+def _field_value(row: dict[str, Any], header_lookup: dict[str, str], canonical: str) -> str:
+    for alias in CANONICAL_ALIASES.get(canonical, []):
+        key = _normalize_header(alias)
+        if key in header_lookup:
+            raw = row.get(header_lookup[key])
+            return "" if raw is None else str(raw)
+    return ""
+
 
 def _crime_record_hash(row: dict[str, Any]) -> str:
     parts = [
@@ -142,12 +179,16 @@ def ingest_crime_csv(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="csv_must_be_utf8")
 
     reader = csv.DictReader(io.StringIO(text))
-    required = {"Crime type", "Month", "Location", "Longitude", "Latitude"}
-    headers = set(reader.fieldnames or [])
-    if not required.issubset(headers):
+    header_lookup = _build_header_lookup(reader.fieldnames)
+    missing = [
+        field
+        for field in REQUIRED_CANONICAL
+        if not any(_normalize_header(a) in header_lookup for a in CANONICAL_ALIASES[field])
+    ]
+    if missing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"missing_required_columns: {sorted(required - headers)}",
+            detail=f"missing_required_columns: {missing}",
         )
 
     records: list[dict[str, Any]] = []
@@ -157,11 +198,11 @@ def ingest_crime_csv(
     for row in reader:
         total_rows += 1
         try:
-            crime_type = (row.get("Crime type") or "").strip()
-            month = (row.get("Month") or "").strip()
-            location = (row.get("Location") or "").strip()
-            lat = float(row.get("Latitude") or "")
-            lon = float(row.get("Longitude") or "")
+            crime_type = _field_value(row, header_lookup, "crime_type").strip()
+            month = _field_value(row, header_lookup, "month").strip()
+            location = _field_value(row, header_lookup, "location").strip()
+            lat = float(_field_value(row, header_lookup, "latitude") or "")
+            lon = float(_field_value(row, header_lookup, "longitude") or "")
             if not crime_type or not month or not location:
                 invalid_rows += 1
                 continue
@@ -170,18 +211,18 @@ def ingest_crime_csv(
             continue
 
         rec = {
-            "crime_id": (row.get("Crime ID") or "").strip() or None,
+            "crime_id": _field_value(row, header_lookup, "crime_id").strip() or None,
             "month": month,
-            "reported_by": (row.get("Reported by") or "").strip() or None,
-            "falls_within": (row.get("Falls within") or "").strip() or None,
+            "reported_by": _field_value(row, header_lookup, "reported_by").strip() or None,
+            "falls_within": _field_value(row, header_lookup, "falls_within").strip() or None,
             "longitude": lon,
             "latitude": lat,
             "location": location,
-            "lsoa_code": (row.get("LSOA code") or "").strip() or None,
-            "lsoa_name": (row.get("LSOA name") or "").strip() or None,
+            "lsoa_code": _field_value(row, header_lookup, "lsoa_code").strip() or None,
+            "lsoa_name": _field_value(row, header_lookup, "lsoa_name").strip() or None,
             "crime_type": crime_type,
-            "last_outcome_category": (row.get("Last outcome category") or "").strip() or None,
-            "context": (row.get("Context") or "").strip() or None,
+            "last_outcome_category": _field_value(row, header_lookup, "last_outcome_category").strip() or None,
+            "context": _field_value(row, header_lookup, "context").strip() or None,
             "geo": {"type": "Point", "coordinates": [lon, lat]},
         }
         rec["record_hash"] = _crime_record_hash(rec)

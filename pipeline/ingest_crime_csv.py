@@ -8,6 +8,49 @@ from .config import get_supabase_config
 from .errors import raise_with_migration_hint
 from .supabase_client import get_supabase_client
 
+CANONICAL_ALIASES = {
+    "crime_type": ["crime type", "crime_type", "type"],
+    "month": ["month", "report_month"],
+    "location": ["location", "place", "incident_location"],
+    "longitude": ["longitude", "lon", "lng", "long"],
+    "latitude": ["latitude", "lat"],
+    "reported_by": ["reported by", "reported_by", "reporting_agency"],
+    "falls_within": ["falls within", "falls_within", "jurisdiction"],
+    "lsoa_code": ["lsoa code", "lsoa_code", "ward_code", "area_code"],
+    "lsoa_name": ["lsoa name", "lsoa_name", "ward_name", "area_name", "county_name"],
+    "last_outcome_category": ["last outcome category", "last_outcome_category", "outcome", "case_outcome"],
+    "crime_id": ["crime id", "crime_id", "incident_id", "id"],
+    "context": ["context", "notes", "description"],
+}
+
+REQUIRED_CANONICAL = ["crime_type", "month", "location", "longitude", "latitude"]
+
+
+def _normalize_header(name: str) -> str:
+    return "".join(ch.lower() if ch.isalnum() else "_" for ch in str(name)).strip("_")
+
+
+def _find_source_column(columns: list[str], aliases: list[str]) -> str | None:
+    normalized_to_original = {_normalize_header(c): c for c in columns}
+    for alias in aliases:
+        key = _normalize_header(alias)
+        if key in normalized_to_original:
+            return normalized_to_original[key]
+    return None
+
+
+def _normalize_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    for canonical, aliases in CANONICAL_ALIASES.items():
+        source = _find_source_column(list(out.columns), aliases)
+        if source:
+            out[canonical] = out[source]
+
+    missing = [field for field in REQUIRED_CANONICAL if field not in out.columns]
+    if missing:
+        raise ValueError(f"CSV is missing required fields after normalization: {missing}")
+    return out
+
 
 def make_record_hash(row: dict) -> str:
     parts = [
@@ -27,22 +70,7 @@ def ingest_csv(csv_path: str) -> int:
         raise FileNotFoundError(f"CSV not found: {csv_path}")
 
     df = pd.read_csv(csv_path)
-    df = df.rename(
-        columns={
-            "Crime type": "crime_type",
-            "Month": "month",
-            "Location": "location",
-            "Longitude": "longitude",
-            "Latitude": "latitude",
-            "Reported by": "reported_by",
-            "Falls within": "falls_within",
-            "LSOA code": "lsoa_code",
-            "LSOA name": "lsoa_name",
-            "Last outcome category": "last_outcome_category",
-            "Crime ID": "crime_id",
-            "Context": "context",
-        }
-    )
+    df = _normalize_dataframe_columns(df)
 
     # Keep only rows with coordinates and crime_type
     df = df.dropna(subset=["latitude", "longitude", "crime_type"]).copy()
