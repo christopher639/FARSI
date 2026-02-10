@@ -100,6 +100,7 @@ export default function SurveillancePage() {
         location: s.name,
         status: (s.status || "inactive").toLowerCase(),
         type: s.rtsp_url ? "CCTV" : "Sensor",
+        lastSeen: s.last_heartbeat || s.created_at || null,
       }));
     }
 
@@ -126,6 +127,7 @@ export default function SurveillancePage() {
         location,
         status,
         type: "Derived",
+        lastSeen: meta.latestTs,
       };
     });
   }, [streams, logs]);
@@ -403,7 +405,7 @@ export default function SurveillancePage() {
                 {/* Timestamp */}
                 <div className="absolute bottom-3 right-3 flex items-center gap-1 text-xs text-white/80 bg-black/50 px-2 py-1 rounded">
                   <Clock className="w-3 h-3" />
-                  LIVE
+                  {camera.lastSeen ? formatDistanceToNow(new Date(camera.lastSeen), { addSuffix: true }) : "No heartbeat"}
                 </div>
 
                 {/* Hover Controls */}

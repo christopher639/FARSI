@@ -1,36 +1,86 @@
-import { Activity, FileText, Camera, Radio, Database, Shield } from "lucide-react";
+import { useMemo } from "react";
+import { formatDistanceToNow } from "date-fns";
+import { Activity, AlertTriangle, Camera, FileText, Radio, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useThreatAlerts } from "@/hooks/useThreatAlerts";
+import { useSurveillanceLogs } from "@/hooks/useSurveillanceLogs";
+import { useCommunications } from "@/hooks/useCommunications";
+import { useIntelligenceReports } from "@/hooks/useIntelligenceReports";
 
 interface FeedItem {
   id: string;
-  type: 'report' | 'cctv' | 'comms' | 'data' | 'system';
+  type: "report" | "cctv" | "comms" | "alert" | "system";
   message: string;
   source: string;
-  time: string;
+  timestamp: string;
 }
 
-const feedItems: FeedItem[] = [
-  { id: '1', type: 'cctv', message: 'Facial recognition match: 87% confidence', source: 'CAM-NAI-042', time: '12:45:32' },
-  { id: '2', type: 'report', message: 'NPS report submitted: Armed robbery suspect', source: 'Kilimani Station', time: '12:44:18' },
-  { id: '3', type: 'data', message: 'Financial transaction flagged: KES 2.4M transfer', source: 'FIU Database', time: '12:43:55' },
-  { id: '4', type: 'comms', message: 'Intercepted communication analyzed', source: 'SIGINT-07', time: '12:42:30' },
-  { id: '5', type: 'system', message: 'Threat model updated: +3 new patterns', source: 'AI Engine', time: '12:41:00' },
-  { id: '6', type: 'cctv', message: 'Vehicle identified: KBZ 234X', source: 'CAM-MBS-018', time: '12:40:22' },
-  { id: '7', type: 'report', message: 'Border incident logged: Unauthorized crossing', source: 'Moyale Post', time: '12:38:45' },
-];
-
 const typeConfig = {
-  report: { icon: FileText, color: 'text-primary', bg: 'bg-primary/10' },
-  cctv: { icon: Camera, color: 'text-success', bg: 'bg-success/10' },
-  comms: { icon: Radio, color: 'text-warning', bg: 'bg-warning/10' },
-  data: { icon: Database, color: 'text-accent', bg: 'bg-accent/10' },
-  system: { icon: Shield, color: 'text-muted-foreground', bg: 'bg-muted/50' },
+  report: { icon: FileText, color: "text-primary", bg: "bg-primary/10" },
+  cctv: { icon: Camera, color: "text-success", bg: "bg-success/10" },
+  comms: { icon: Radio, color: "text-warning", bg: "bg-warning/10" },
+  alert: { icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10" },
+  system: { icon: Shield, color: "text-muted-foreground", bg: "bg-muted/50" },
 };
 
 export function ActivityFeed() {
+  const { alerts, loading: alertsLoading } = useThreatAlerts();
+  const { logs, loading: logsLoading } = useSurveillanceLogs();
+  const { communications, loading: commsLoading } = useCommunications();
+  const { reports, loading: reportsLoading } = useIntelligenceReports();
+
+  const loading = alertsLoading || logsLoading || commsLoading || reportsLoading;
+
+  const feedItems = useMemo<FeedItem[]>(() => {
+    const items: FeedItem[] = [];
+
+    for (const alert of alerts) {
+      items.push({
+        id: `alert-${alert.id}`,
+        type: "alert",
+        message: alert.title,
+        source: alert.location || alert.source || "Threat monitoring",
+        timestamp: alert.created_at,
+      });
+    }
+
+    for (const log of logs) {
+      items.push({
+        id: `surveillance-${log.id}`,
+        type: "cctv",
+        message: log.event_description || log.event_type,
+        source: log.location || log.recorded_by || "Surveillance node",
+        timestamp: log.timestamp,
+      });
+    }
+
+    for (const comm of communications) {
+      items.push({
+        id: `comms-${comm.id}`,
+        type: "comms",
+        message: comm.content_summary || `${comm.channel_type} communication`,
+        source: comm.sender || comm.recipient || comm.channel_type || "Secure channel",
+        timestamp: comm.timestamp || comm.created_at,
+      });
+    }
+
+    for (const report of reports) {
+      items.push({
+        id: `report-${report.id}`,
+        type: "report",
+        message: report.title,
+        source: report.source || report.category || "Intelligence desk",
+        timestamp: report.created_at,
+      });
+    }
+
+    return items
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 50);
+  }, [alerts, logs, communications, reports]);
+
   return (
     <div className="panel-glow flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-panel-border">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-success/10 border border-success/30 flex items-center justify-center">
@@ -43,20 +93,21 @@ export function ActivityFeed() {
         </div>
         <div className="flex items-center gap-1">
           <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-          <span className="text-xs text-success font-mono">LIVE</span>
+          <span className="text-xs text-success font-mono">{loading ? "SYNCING" : "LIVE"}</span>
         </div>
       </div>
 
-      {/* Feed */}
       <div className="flex-1 overflow-y-auto relative">
-        {/* Scan line effect */}
         <div className="absolute inset-0 scan-line pointer-events-none" />
-        
+
         <div className="p-2 space-y-1">
+          {!loading && feedItems.length === 0 && (
+            <div className="text-xs text-muted-foreground p-3">No activity available yet.</div>
+          )}
           {feedItems.map((item, index) => {
             const config = typeConfig[item.type];
             const Icon = config.icon;
-            
+
             return (
               <div
                 key={item.id}
@@ -76,8 +127,10 @@ export function ActivityFeed() {
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] text-muted-foreground font-mono">{item.source}</span>
-                      <span className="text-[10px] text-muted-foreground/50">â€¢</span>
-                      <span className="text-[10px] text-muted-foreground/70 font-mono">{item.time}</span>
+                      <span className="text-[10px] text-muted-foreground/50">•</span>
+                      <span className="text-[10px] text-muted-foreground/70 font-mono">
+                        {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -87,14 +140,13 @@ export function ActivityFeed() {
         </div>
       </div>
 
-      {/* Stats Footer */}
       <div className="p-3 border-t border-panel-border bg-secondary/20">
         <div className="grid grid-cols-4 gap-2 text-center">
           {[
-            { label: 'Reports', value: '1,247' },
-            { label: 'CCTV', value: '89' },
-            { label: 'SIGINT', value: '34' },
-            { label: 'Financial', value: '156' },
+            { label: "Reports", value: reports.length.toLocaleString() },
+            { label: "CCTV", value: logs.length.toLocaleString() },
+            { label: "Comms", value: communications.length.toLocaleString() },
+            { label: "Alerts", value: alerts.length.toLocaleString() },
           ].map((stat) => (
             <div key={stat.label}>
               <p className="text-sm font-bold font-mono text-foreground">{stat.value}</p>

@@ -69,6 +69,11 @@ export default function AlertsPage() {
   const canCreate = isAdmin || isAnalyst;
   const canEdit = isAdmin || isAnalyst;
 
+  const escapeCsv = (value: string | null | undefined) => {
+    const str = String(value ?? "");
+    return `"${str.replace(/"/g, '""')}"`;
+  };
+
   const resetForm = () => {
     setFormData({
       title: "",
@@ -195,6 +200,42 @@ export default function AlertsPage() {
     setIsEditDialogOpen(true);
   };
 
+  const handleExportAlerts = () => {
+    try {
+      const headers = ["id", "title", "description", "location", "severity", "status", "source", "created_at", "updated_at"];
+      const rows = filteredAlerts.map((alert) =>
+        [
+          alert.id,
+          alert.title,
+          alert.description,
+          alert.location,
+          alert.severity,
+          alert.status,
+          alert.source,
+          alert.created_at,
+          alert.updated_at,
+        ]
+          .map((cell) => escapeCsv(cell))
+          .join(",")
+      );
+
+      const csv = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      a.href = url;
+      a.download = `farsi-alerts-${ts}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${filteredAlerts.length} alerts`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to export alerts");
+    }
+  };
+
   const AlertForm = ({ onSubmit, isEdit = false }: { onSubmit: (e: React.FormEvent) => void; isEdit?: boolean }) => (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2">
@@ -283,7 +324,7 @@ export default function AlertsPage() {
           <p className="text-sm text-muted-foreground">Real-time threat notifications and incident tracking</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExportAlerts}>
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
