@@ -18,7 +18,7 @@ python -m pip install -r requirements.txt
 ## 3. Ingest CSV to Supabase
 
 ```
-python -m pipeline.ingest_crime_csv --csv data/crime/2025-11-avon-and-somerset-street.csv
+python -m pipeline.ingest_crime_csv --csv data/crime/2025-11-kenya-simulated-street.csv
 ```
 
 ### Generate Kenya-Simulated CSV (Avon-compatible schema)
@@ -37,7 +37,7 @@ python -m pipeline.train_crime_model --output-dir models
 ## 5. Import/Export Utility
 
 ```
-python -m pipeline.supabase_io import --csv data/crime/2025-11-avon-and-somerset-street.csv --table crime_events
+python -m pipeline.supabase_io import --csv data/crime/2025-11-kenya-simulated-street.csv --table crime_events
 python -m pipeline.supabase_io export --out data/exports/crime_events.csv --table crime_events
 ```
 

@@ -88,7 +88,7 @@ def main():
     parser = argparse.ArgumentParser(description="Ingest crime CSV into Supabase")
     parser.add_argument(
         "--csv",
-        default="data/crime/2025-11-avon-and-somerset-street.csv",
+        default="data/crime/2025-11-kenya-simulated-street.csv",
         help="Path to CSV file",
     )
     args = parser.parse_args()

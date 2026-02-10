@@ -8,7 +8,7 @@ import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
 import { apiGet } from "@/lib/api";
 
-const CSV_URL = "/data/crime/2025-11-avon-and-somerset-street.csv";
+const CSV_URL = "/data/crime/2025-11-kenya-simulated-street.csv";
 const SUPABASE_TABLE = import.meta.env.VITE_CRIME_SUPABASE_TABLE || "crime_events";
 const DEFAULT_SOURCE = import.meta.env.VITE_CRIME_SOURCE === "supabase" ? "supabase" : "csv";
 
