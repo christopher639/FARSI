@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import os
+from datetime import datetime
 import pandas as pd
 from postgrest.exceptions import APIError
 
@@ -9,9 +10,9 @@ from .errors import raise_with_migration_hint
 from .supabase_client import get_supabase_client
 
 CANONICAL_ALIASES = {
-    "crime_type": ["crime type", "crime_type", "type"],
-    "month": ["month", "report_month"],
-    "location": ["location", "place", "incident_location"],
+    "crime_type": ["crime type", "crime_type", "type", "offense", "offence", "category", "incident_type", "primary_type"],
+    "month": ["month", "report_month", "date", "incident_date", "reported_date", "date_reported", "occurrence_date", "datetime"],
+    "location": ["location", "place", "incident_location", "address", "street", "block", "area", "district", "ward", "county", "neighborhood", "suburb"],
     "longitude": ["longitude", "lon", "lng", "long"],
     "latitude": ["latitude", "lat"],
     "reported_by": ["reported by", "reported_by", "reporting_agency"],
@@ -23,7 +24,7 @@ CANONICAL_ALIASES = {
     "context": ["context", "notes", "description"],
 }
 
-REQUIRED_CANONICAL = ["crime_type", "month", "location", "longitude", "latitude"]
+REQUIRED_CANONICAL = ["crime_type", "longitude", "latitude"]
 
 
 def _normalize_header(name: str) -> str:
@@ -52,6 +53,22 @@ def _normalize_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _normalize_month(value: object) -> str | None:
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    if len(raw) >= 7 and raw[4] == "-" and raw[:4].isdigit() and raw[5:7].isdigit():
+        return raw[:7]
+
+    dt = pd.to_datetime(raw, errors="coerce", utc=False)
+    if pd.isna(dt):
+        return None
+    return dt.strftime("%Y-%m")
+
+
 def make_record_hash(row: dict) -> str:
     parts = [
         str(row.get("crime_type", "")),
@@ -71,6 +88,20 @@ def ingest_csv(csv_path: str) -> int:
 
     df = pd.read_csv(csv_path)
     df = _normalize_dataframe_columns(df)
+
+    # Make month/location resilient for mixed source schemas.
+    if "month" in df.columns:
+        df["month"] = df["month"].apply(_normalize_month)
+    else:
+        df["month"] = None
+    current_month = datetime.utcnow().strftime("%Y-%m")
+    df["month"] = df["month"].fillna(current_month)
+
+    if "location" not in df.columns:
+        df["location"] = "Unknown"
+    else:
+        df["location"] = df["location"].fillna("").astype(str).str.strip()
+        df.loc[df["location"] == "", "location"] = "Unknown"
 
     # Keep only rows with coordinates and crime_type
     df = df.dropna(subset=["latitude", "longitude", "crime_type"]).copy()

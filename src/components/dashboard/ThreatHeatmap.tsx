@@ -10,7 +10,15 @@ import { apiGet } from "@/lib/api";
 
 const CSV_URL = "/data/crime/2025-11-kenya-simulated-street.csv";
 const SUPABASE_TABLE = import.meta.env.VITE_CRIME_SUPABASE_TABLE || "crime_events";
-const DEFAULT_SOURCE = import.meta.env.VITE_CRIME_SOURCE === "supabase" ? "supabase" : "csv";
+const SUPABASE_ENABLED = Boolean(import.meta.env.VITE_SUPABASE_URL);
+const DEFAULT_SOURCE: DataSource =
+  import.meta.env.VITE_CRIME_SOURCE === "csv"
+    ? "csv"
+    : import.meta.env.VITE_CRIME_SOURCE === "backend"
+    ? "backend"
+    : SUPABASE_ENABLED
+    ? "supabase"
+    : "csv";
 
 const CRIME_SEVERITY: Record<string, number> = {
   "Anti-social behaviour": 2,
@@ -348,7 +356,7 @@ export function ThreatHeatmap() {
     setRefreshing(false);
   };
 
-  const supabaseEnabled = Boolean(import.meta.env.VITE_SUPABASE_URL);
+  const supabaseEnabled = SUPABASE_ENABLED;
 
   return (
     <div

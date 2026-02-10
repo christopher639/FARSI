@@ -22,6 +22,16 @@ python -m pipeline.ingest_crime_csv --csv data/crime/2025-11-kenya-simulated-str
 ```
 
 The ingestor normalizes common header variants (for example `crime_type`, `Crime Type`, `LAT`, `lng`, `outcome`) into the project schema.
+You do not need exact Supabase column names in the CSV headers.
+
+Minimum required fields in your CSV (including alias variants):
+- crime type
+- latitude
+- longitude
+
+Optional but recommended:
+- month/date (auto-normalized to `YYYY-MM`, defaulted to current month if missing)
+- location (defaulted to `Unknown` if missing)
 
 ### Generate Kenya-Simulated CSV (Avon-compatible schema)
 
