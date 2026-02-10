@@ -105,14 +105,14 @@ const Index = () => {
           />
           <MetricCard
             title="Active Operations"
-            value={loading ? "..." : Math.min(stats.activeOperations, 12).toString()}
-            subtitle={`${Math.min(stats.criticalZones, 3)} high priority`}
+            value={loading ? "..." : stats.activeOperations.toString()}
+            subtitle={`${stats.criticalZones} high priority`}
             icon={Crosshair}
             variant="success"
           />
           <MetricCard
             title="Agencies Online"
-            value={loading ? "..." : `${stats.agenciesOnline}/${stats.totalAgencies || 8}`}
+            value={loading ? "..." : `${stats.agenciesOnline}/${stats.totalAgencies}`}
             subtitle={stats.totalAgencies > stats.agenciesOnline ? "Sync pending" : "All connected"}
             icon={Radio}
             variant="default"

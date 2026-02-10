@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
@@ -191,6 +191,21 @@ export default function DataFusionPage() {
     }
   };
 
+  const handleToggleAgencyConnection = async (agency: any) => {
+    const nextStatus = agency.status === "active" ? "inactive" : "active";
+    try {
+      const { error } = await supabase
+        .from("connected_agencies")
+        .update({ status: nextStatus as any })
+        .eq("id", agency.id);
+      if (error) throw error;
+      toast.success(nextStatus === "active" ? `${agency.name} connected` : `${agency.name} disconnected`);
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to change agency connection");
+    }
+  };
+
   const openEditDialog = (agency: any) => {
     setEditingAgency(agency);
     setFormData({
@@ -215,8 +230,9 @@ export default function DataFusionPage() {
       .select("*", { count: "exact", head: true });
     setCrimeCount(count || 0);
   };
-  // fetch on mount
-  useState(() => { fetchCrimeCount(); });
+  useEffect(() => {
+    fetchCrimeCount();
+  }, []);
 
   const totalRecords = crimeCount ? crimeCount.toLocaleString() : "0";
 
@@ -679,7 +695,14 @@ export default function DataFusionPage() {
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex gap-2 shrink-0">
+                  <div className="flex gap-2 shrink-0 flex-wrap">
+                    <Button
+                      variant={agency.status === "active" ? "outline" : "default"}
+                      size="sm"
+                      onClick={() => handleToggleAgencyConnection(agency)}
+                    >
+                      {agency.status === "active" ? "Disconnect" : "Connect"}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

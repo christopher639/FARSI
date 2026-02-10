@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSurveillanceLogs } from "@/hooks/useSurveillanceLogs";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiPost, apiPut, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
 import { Eye, Video, Camera, MapPin, Clock, Plus, Loader2, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,19 +23,19 @@ const surveillanceSchema = z.object({
   event_description: z.string().max(2000).optional(),
 });
 
-// Static camera data for the UI
-const cameras = [
-  { id: "CAM-001", location: "Nairobi CBD - Kenyatta Ave", status: "active", type: "CCTV" },
-  { id: "CAM-002", location: "JKIA Terminal 1", status: "active", type: "CCTV" },
-  { id: "CAM-003", location: "Mombasa Port Entry", status: "active", type: "CCTV" },
-  { id: "CAM-004", location: "Garissa Border Post", status: "maintenance", type: "CCTV" },
-  { id: "CAM-005", location: "Nakuru Highway", status: "active", type: "Traffic" },
-  { id: "CAM-006", location: "Kisumu Airport", status: "active", type: "CCTV" },
-];
+type Stream = {
+  id: string;
+  name: string;
+  status?: string | null;
+  rtsp_url?: string | null;
+  created_at?: string;
+  last_heartbeat?: string | null;
+};
 
 const statusColors = {
   active: "bg-success/20 text-success border-success/30",
   maintenance: "bg-warning/20 text-warning border-warning/30",
+  inactive: "bg-muted text-muted-foreground",
   offline: "bg-destructive/20 text-destructive border-destructive/30",
 };
 
@@ -52,6 +52,8 @@ const eventTypeOptions = [
 export default function SurveillancePage() {
   const { logs, loading, refetch } = useSurveillanceLogs();
   const { user, isAdmin } = useAuth();
+  const [streams, setStreams] = useState<Stream[]>([]);
+  const [streamsLoading, setStreamsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -73,6 +75,60 @@ export default function SurveillancePage() {
       event_description: "",
     });
   };
+
+  const fetchStreams = async () => {
+    try {
+      setStreamsLoading(true);
+      const data = await apiGet<Stream[]>("/surveillance/streams");
+      setStreams(data || []);
+    } catch (error) {
+      console.error("Failed to fetch surveillance streams", error);
+      setStreams([]);
+    } finally {
+      setStreamsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStreams();
+  }, []);
+
+  const cameras = useMemo(() => {
+    if (streams.length) {
+      return streams.map((s) => ({
+        id: s.id,
+        location: s.name,
+        status: (s.status || "inactive").toLowerCase(),
+        type: s.rtsp_url ? "CCTV" : "Sensor",
+      }));
+    }
+
+    // Fallback to inferred camera nodes from real surveillance logs.
+    const byLocation = new Map<string, { count: number; latestTs: string }>();
+    for (const log of logs) {
+      const loc = (log.location || "Unknown Location").trim();
+      const prev = byLocation.get(loc);
+      if (!prev) {
+        byLocation.set(loc, { count: 1, latestTs: log.timestamp });
+      } else {
+        prev.count += 1;
+        if (new Date(log.timestamp).getTime() > new Date(prev.latestTs).getTime()) {
+          prev.latestTs = log.timestamp;
+        }
+      }
+    }
+
+    return Array.from(byLocation.entries()).map(([location, meta], idx) => {
+      const ageHours = (Date.now() - new Date(meta.latestTs).getTime()) / (1000 * 60 * 60);
+      const status = ageHours <= 24 ? "active" : ageHours <= 72 ? "maintenance" : "offline";
+      return {
+        id: `LOG-CAM-${String(idx + 1).padStart(3, "0")}`,
+        location,
+        status,
+        type: "Derived",
+      };
+    });
+  }, [streams, logs]);
 
   const handleCreateLog = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,6 +370,16 @@ export default function SurveillancePage() {
 
       {activeTab === "cameras" ? (
         /* Camera Grid */
+        streamsLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        ) : cameras.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <Camera className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>No surveillance streams available</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cameras.map((camera) => (
             <div key={camera.id} className="bg-card border border-panel-border rounded-lg overflow-hidden group">
@@ -324,7 +390,7 @@ export default function SurveillancePage() {
                 
                 {/* Status Indicator */}
                 <div className="absolute top-3 right-3">
-                  <Badge className={statusColors[camera.status as keyof typeof statusColors]}>
+                  <Badge className={statusColors[camera.status as keyof typeof statusColors] || statusColors.inactive}>
                     {camera.status}
                   </Badge>
                 </div>
@@ -363,6 +429,7 @@ export default function SurveillancePage() {
             </div>
           ))}
         </div>
+        )
       ) : (
         /* Event Logs */
         <div className="space-y-3">
