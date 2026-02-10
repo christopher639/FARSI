@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -23,7 +22,7 @@ export default function SystemSettingsPage() {
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
-      navigate("/dashboard");
+      navigate("/");
     }
   }, [isAdmin, authLoading, navigate]);
 

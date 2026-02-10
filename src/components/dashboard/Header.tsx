@@ -1,6 +1,5 @@
 import { Bell, Search, Clock, LogOut, ChevronDown, Settings, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +43,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const fetchProfile = async () => {
     if (!user) return;
-    
+
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -82,28 +81,32 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const getInitials = () => {
     if (profile?.full_name) {
-      return profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+      return profile.full_name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return getDisplayName().slice(0, 2).toUpperCase();
   };
 
+  const timeWithZone = currentTime.toLocaleTimeString('en-US', {
+    hour12: false,
+    timeZoneName: 'short',
+  });
+  const localZone = timeWithZone.split(' ').pop() || 'LOCAL';
+
   return (
     <header className="fixed top-0 left-0 right-0 h-16 border-b border-panel-border bg-card/95 backdrop-blur-sm flex items-center justify-between px-3 sm:px-4 md:px-6 z-50">
-      {/* Left Section */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Mobile Menu Button */}
-        <button 
+        <button
           onClick={onMenuClick}
           className="w-10 h-10 rounded-lg bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors lg:hidden"
+          aria-label="Toggle menu"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Logo */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <img 
-            src="/android-chrome-192x192.png" 
-            alt="FARSI Logo" 
+          <img
+            src="/android-chrome-192x192.png"
+            alt="FARSI Logo"
             className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl"
           />
           <div className="hidden xs:block">
@@ -115,8 +118,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             </p>
           </div>
         </div>
-        
-        {/* Status Indicators */}
+
         <div className="hidden xl:flex items-center gap-4 ml-6 pl-6 border-l border-panel-border">
           <StatusIndicator label="SYSTEM" status="online" />
           <StatusIndicator label="DATA FEED" status="active" />
@@ -124,40 +126,41 @@ export function Header({ onMenuClick }: HeaderProps) {
         </div>
       </div>
 
-      {/* Right Section */}
       <div className="flex items-center gap-4">
-        {/* Time Display */}
         <div className="hidden md:flex items-center gap-2 text-muted-foreground font-mono text-sm">
           <Clock className="w-4 h-4" />
           <span>{currentTime.toLocaleTimeString('en-US', { hour12: false })}</span>
-          <span className="text-xs opacity-50">EAT</span>
+          <span className="text-xs opacity-50">{localZone}</span>
         </div>
 
-        {/* Divider */}
         <div className="h-8 w-px bg-panel-border hidden md:block" />
 
-        {/* Search */}
-        <button className="w-10 h-10 rounded-lg bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          className="w-10 h-10 rounded-lg bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Search"
+          onClick={() => navigate('/data-fusion')}
+        >
           <Search className="w-4 h-4" />
         </button>
 
-        {/* Notifications */}
-        <button className="relative w-10 h-10 rounded-lg bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          className="relative w-10 h-10 rounded-lg bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Open alerts"
+          onClick={() => navigate('/alerts')}
+        >
           <Bell className="w-4 h-4" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full pulse-glow" />
         </button>
 
-        {/* Divider */}
         <div className="h-8 w-px bg-panel-border" />
 
-        {/* User Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 hover:bg-secondary/50 rounded-lg p-2 transition-colors">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium">{getDisplayName()}</p>
                 <Badge className={`text-[10px] ${getRoleBadgeColor(userRole)}`}>
-                  {userRole === undefined ? 'Loading…' : (userRole || 'No Role')}
+                  {userRole === undefined ? 'Loading...' : (userRole || 'No Role')}
                 </Badge>
               </div>
               <Avatar className="w-10 h-10 border border-primary/30">
@@ -181,13 +184,13 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <div>
                   <p className="font-medium">{profile?.full_name || getDisplayName()}</p>
                   <p className="text-xs text-muted-foreground capitalize">
-                    {userRole === undefined ? 'Loading access…' : `${userRole || 'No Role'} Access`}
+                    {userRole === undefined ? 'Loading access...' : `${userRole || 'No Role'} Access`}
                   </p>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={() => navigate('/settings')}
               className="cursor-pointer"
             >
@@ -195,7 +198,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={handleSignOut}
               className="text-destructive focus:text-destructive cursor-pointer"
             >
