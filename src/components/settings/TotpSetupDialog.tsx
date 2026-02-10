@@ -120,7 +120,7 @@ export const TotpSetupDialog = forwardRef<HTMLDivElement, TotpSetupDialogProps>(
 
     return (
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent ref={ref} className="sm:max-w-md">
+        <DialogContent ref={ref} className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
@@ -237,3 +237,4 @@ export const TotpSetupDialog = forwardRef<HTMLDivElement, TotpSetupDialogProps>(
     );
   }
 );
+

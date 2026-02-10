@@ -373,7 +373,7 @@ export function SecurityConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {getIcon()}
@@ -629,3 +629,4 @@ export function SecurityConfirmDialog({
     </Dialog>
   );
 }
+

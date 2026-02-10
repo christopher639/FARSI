@@ -363,7 +363,7 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
         <Dialog open={open} onOpenChange={handleClose}>
           <DialogContent 
             ref={ref}
-            className="sm:max-w-lg" 
+            className="sm:max-w-2xl" 
             onPointerDownOutside={(e) => preventClose && e.preventDefault()}
             onEscapeKeyDown={(e) => preventClose && e.preventDefault()}
             // Hide close button when preventClose is true
@@ -607,3 +607,4 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
     );
   }
 );
+

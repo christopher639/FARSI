@@ -281,7 +281,7 @@ export default function IntelligenceReportsPage() {
                 New Report
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] p-0 bg-card border-primary/20 overflow-hidden">
+            <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] p-0 bg-card border-primary/20 overflow-hidden">
               <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2">
                 <DialogTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
@@ -304,7 +304,7 @@ export default function IntelligenceReportsPage() {
           resetForm();
         }
       }}>
-        <DialogContent className="w-[95vw] max-w-lg max-h-[90vh] p-0 bg-card border-primary/20 overflow-hidden">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] p-0 bg-card border-primary/20 overflow-hidden">
           <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5 text-primary" />
@@ -475,3 +475,4 @@ export default function IntelligenceReportsPage() {
     </div>
   );
 }
+
