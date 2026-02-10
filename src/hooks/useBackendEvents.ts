@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { apiGet } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface BackendEvent {
@@ -24,11 +23,31 @@ export function useBackendEvents() {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const data = await apiGet<BackendEvent[]>("/events?limit=20");
-      setEvents(data);
+      const { data, error: fetchError } = await supabase
+        .from('ingestion_events')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (fetchError) throw fetchError;
+
+      const mapped: BackendEvent[] = (data || []).map((row) => ({
+        id: row.id,
+        event_type: row.event_type,
+        title: row.title,
+        description: row.description,
+        modality: row.modality || "text",
+        created_at: row.created_at,
+        provenance: {
+          source_system: (row.provenance as any)?.source_system || "unknown",
+          source_agency: (row.provenance as any)?.source_agency || null,
+          ingested_at: (row.provenance as any)?.ingested_at || row.created_at,
+        },
+      }));
+      setEvents(mapped);
       setError(null);
     } catch (err: any) {
-      setError(err.message || "Failed to fetch backend events");
+      setError(err.message || "Failed to fetch ingestion events");
     } finally {
       setLoading(false);
     }

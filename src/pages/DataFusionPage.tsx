@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiPost, apiPut, apiDelete, apiPostForm, apiGetBlob } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
+import Papa from "papaparse";
 import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,6 @@ type ImportSummary = {
   valid_rows: number;
   invalid_rows: number;
   inserted: number;
-  event_id: string;
 };
 
 type DataSourceRow = {
@@ -55,6 +55,26 @@ const dataStatusColors = {
   syncing: "bg-warning/20 text-warning border-warning/30",
   offline: "bg-destructive/20 text-destructive border-destructive/30",
 };
+
+function hashRecord(row: Record<string, string>): string {
+  const parts = [
+    row["crime_type"] || row["Crime type"] || "",
+    row["month"] || row["Month"] || "",
+    row["location"] || row["Location"] || "",
+    row["latitude"] || row["Latitude"] || "",
+    row["longitude"] || row["Longitude"] || "",
+    row["reported_by"] || row["Reported by"] || "",
+  ];
+  const raw = parts.join("|");
+  const encoder = new TextEncoder();
+  const data = encoder.encode(raw);
+  // Simple hash for dedup — use a sync approach
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    hash = ((hash << 5) - hash + data[i]) | 0;
+  }
+  return Math.abs(hash).toString(16).padStart(8, "0");
+}
 
 export default function DataFusionPage() {
   const { agencies, loading, refetch } = useAgencies();
@@ -93,33 +113,32 @@ export default function DataFusionPage() {
     });
   };
 
+  // ── Agency CRUD via Supabase ──
+
   const handleCreateAgency = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     const validation = agencySchema.safeParse(formData);
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
     }
-
     setCreating(true);
     try {
-      await apiPost("/agencies", {
+      const { error } = await supabase.from("connected_agencies").insert({
         name: formData.name,
         code: formData.code.toUpperCase(),
         description: formData.description || null,
-        status: formData.status,
+        status: formData.status as any,
         contact_person: formData.contact_person || null,
         contact_email: formData.contact_email || null,
         contact_phone: formData.contact_phone || null,
       });
-
+      if (error) throw error;
       toast.success("Agency created successfully");
       setIsCreateDialogOpen(false);
       resetForm();
       refetch();
     } catch (error: any) {
-      console.error("Error creating agency:", error);
       toast.error(error.message || "Failed to create agency");
     } finally {
       setCreating(false);
@@ -129,32 +148,32 @@ export default function DataFusionPage() {
   const handleUpdateAgency = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAgency) return;
-    
     const validation = agencySchema.safeParse(formData);
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
     }
-
     setCreating(true);
     try {
-      await apiPut(`/agencies/${editingAgency.id}`, {
-        name: formData.name,
-        code: formData.code.toUpperCase(),
-        description: formData.description || null,
-        status: formData.status,
-        contact_person: formData.contact_person || null,
-        contact_email: formData.contact_email || null,
-        contact_phone: formData.contact_phone || null,
-      });
-
+      const { error } = await supabase
+        .from("connected_agencies")
+        .update({
+          name: formData.name,
+          code: formData.code.toUpperCase(),
+          description: formData.description || null,
+          status: formData.status as any,
+          contact_person: formData.contact_person || null,
+          contact_email: formData.contact_email || null,
+          contact_phone: formData.contact_phone || null,
+        })
+        .eq("id", editingAgency.id);
+      if (error) throw error;
       toast.success("Agency updated successfully");
       setIsEditDialogOpen(false);
       setEditingAgency(null);
       resetForm();
       refetch();
     } catch (error: any) {
-      console.error("Error updating agency:", error);
       toast.error(error.message || "Failed to update agency");
     } finally {
       setCreating(false);
@@ -163,7 +182,8 @@ export default function DataFusionPage() {
 
   const handleDeleteAgency = async (id: string) => {
     try {
-      await apiDelete(`/agencies/${id}`);
+      const { error } = await supabase.from("connected_agencies").delete().eq("id", id);
+      if (error) throw error;
       toast.success("Agency deleted");
       refetch();
     } catch (error: any) {
@@ -177,7 +197,7 @@ export default function DataFusionPage() {
       name: agency.name,
       code: agency.code,
       description: agency.description || "",
-      status: agency.status,
+      status: agency.status || "pending",
       contact_person: agency.contact_person || "",
       contact_email: agency.contact_email || "",
       contact_phone: agency.contact_phone || "",
@@ -187,50 +207,39 @@ export default function DataFusionPage() {
 
   const activeAgencies = agencies.filter(a => a.status === 'active').length;
 
-  const parsedCounts = useMemo(() => {
-    return events
-      .map((e) => {
-        const match = (e.description || "").match(/Imported\\s+(\\d+)\\s+records\\s+from\\s+(\\d+)\\s+CSV\\s+rows;\\s+invalid_rows=(\\d+)/i);
-        if (!match) return null;
-        return {
-          inserted: Number(match[1]),
-          total: Number(match[2]),
-          invalid: Number(match[3]),
-          created_at: e.created_at,
-          source_system: e.provenance?.source_system || "unknown",
-        };
-      })
-      .filter((v): v is { inserted: number; total: number; invalid: number; created_at: string; source_system: string } => Boolean(v));
-  }, [events]);
+  // ── Crime events count ──
+  const [crimeCount, setCrimeCount] = useState(0);
+  const fetchCrimeCount = async () => {
+    const { count } = await supabase
+      .from("crime_events")
+      .select("*", { count: "exact", head: true });
+    setCrimeCount(count || 0);
+  };
+  // fetch on mount
+  useState(() => { fetchCrimeCount(); });
 
-  const totalImportedRows = parsedCounts.reduce((acc, x) => acc + x.inserted, 0);
-  const totalRecords = totalImportedRows ? totalImportedRows.toLocaleString() : "0";
+  const totalRecords = crimeCount ? crimeCount.toLocaleString() : "0";
 
   const dataSources = useMemo<DataSourceRow[]>(() => {
     const lastBackendEvent = events[0];
     const backendHealthy = !eventsError;
-    const csvImports = parsedCounts.filter((x) => x.source_system.includes("data_fusion"));
-    const csvInserted = csvImports.reduce((acc, x) => acc + x.inserted, 0);
-    const csvLastSync = csvImports[0]?.created_at || importSummary ? importSummary ? new Date().toISOString() : "" : "";
 
     return [
       {
-        name: "CSV Crime Feed (Kenya)",
-        status: importing ? "syncing" : csvInserted > 0 ? "synced" : "offline",
-        records: csvInserted.toLocaleString(),
-        lastSync: csvLastSync
-          ? formatDistanceToNow(new Date(csvLastSync), { addSuffix: true })
-          : "never",
-        health: importing ? 70 : csvInserted > 0 ? 96 : 0,
+        name: "Crime Events Database",
+        status: crimeCount > 0 ? "synced" : "offline",
+        records: crimeCount.toLocaleString(),
+        lastSync: importing ? "syncing now..." : crimeCount > 0 ? "live" : "never",
+        health: crimeCount > 0 ? 96 : 0,
       },
       {
-        name: "Ingestion Events Backend",
-        status: backendHealthy ? "synced" : "offline",
+        name: "Ingestion Events",
+        status: backendHealthy && events.length > 0 ? "synced" : "offline",
         records: events.length.toString(),
         lastSync: lastBackendEvent
           ? formatDistanceToNow(new Date(lastBackendEvent.created_at), { addSuffix: true })
           : "no events",
-        health: backendHealthy ? 95 : 0,
+        health: backendHealthy && events.length > 0 ? 95 : 0,
       },
       {
         name: "Connected Agencies Directory",
@@ -242,12 +251,12 @@ export default function DataFusionPage() {
         health: agencies.length ? Math.min(100, 40 + activeAgencies * 10) : 0,
       },
     ];
-  }, [events, eventsError, parsedCounts, importSummary, importing, agencies, activeAgencies]);
+  }, [events, eventsError, crimeCount, importing, agencies, activeAgencies]);
 
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
-      await Promise.all([refetch(), refetchEvents()]);
+      await Promise.all([refetch(), refetchEvents(), fetchCrimeCount()]);
       toast.success("Data fusion sync completed");
     } catch (error: any) {
       toast.error(error.message || "Failed to sync data sources");
@@ -255,6 +264,8 @@ export default function DataFusionPage() {
       setSyncing(false);
     }
   };
+
+  // ── CSV Import (client-side parsing → Supabase upsert) ──
 
   const handleImportButton = () => {
     fileInputRef.current?.click();
@@ -271,26 +282,92 @@ export default function DataFusionPage() {
 
     setImporting(true);
     setImportProgress(10);
-    try {
-      const form = new FormData();
-      form.append("csv_file", file);
-      form.append("source_system", "data_fusion_upload");
-      form.append("source_agency", "Data Fusion Hub");
 
-      setImportProgress(35);
-      const result = await apiPostForm<ImportSummary & { status: string }>("/ingest/crime-csv", form);
-      setImportProgress(85);
-      setImportSummary({
-        filename: result.filename,
-        total_rows: result.total_rows,
-        valid_rows: result.valid_rows,
-        invalid_rows: result.invalid_rows,
-        inserted: result.inserted,
-        event_id: result.event_id,
-      });
-      await refetchEvents();
+    try {
+      const text = await file.text();
+      setImportProgress(20);
+
+      const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
+      const rows = parsed.data;
+      setImportProgress(30);
+
+      const columnMap: Record<string, string> = {
+        "Crime type": "crime_type",
+        "Month": "month",
+        "Location": "location",
+        "Longitude": "longitude",
+        "Latitude": "latitude",
+        "Reported by": "reported_by",
+        "Falls within": "falls_within",
+        "LSOA code": "lsoa_code",
+        "LSOA name": "lsoa_name",
+        "Last outcome category": "last_outcome_category",
+        "Crime ID": "crime_id",
+        "Context": "context",
+      };
+
+      let validRows = 0;
+      let invalidRows = 0;
+      const records: any[] = [];
+
+      for (const row of rows) {
+        const mapped: Record<string, any> = {};
+        for (const [original, target] of Object.entries(columnMap)) {
+          if (row[original] !== undefined) mapped[target] = row[original] || null;
+          else if (row[target] !== undefined) mapped[target] = row[target] || null;
+        }
+
+        const lat = parseFloat(mapped.latitude);
+        const lon = parseFloat(mapped.longitude);
+        if (isNaN(lat) || isNaN(lon) || !mapped.crime_type) {
+          invalidRows++;
+          continue;
+        }
+
+        mapped.latitude = lat;
+        mapped.longitude = lon;
+        mapped.record_hash = hashRecord(row);
+        mapped.geo = { type: "Point", coordinates: [lon, lat] };
+        records.push(mapped);
+        validRows++;
+      }
+
+      setImportProgress(50);
+
+      let inserted = 0;
+      const chunkSize = 500;
+      for (let i = 0; i < records.length; i += chunkSize) {
+        const chunk = records.slice(i, i + chunkSize);
+        const { data, error } = await supabase.from("crime_events").upsert(chunk, { onConflict: "record_hash" });
+        if (error) throw error;
+        inserted += chunk.length;
+        setImportProgress(50 + Math.round((i / records.length) * 45));
+      }
+
       setImportProgress(100);
-      toast.success(`Imported ${result.inserted.toLocaleString()} records from ${result.filename}`);
+      setImportSummary({
+        filename: file.name,
+        total_rows: rows.length,
+        valid_rows: validRows,
+        invalid_rows: invalidRows,
+        inserted,
+      });
+
+      // Log ingestion event
+      await supabase.from("ingestion_events").insert({
+        event_type: "csv_import",
+        title: `CSV Import: ${file.name}`,
+        description: `Imported ${inserted} records from ${rows.length} CSV rows; invalid_rows=${invalidRows}`,
+        modality: "csv",
+        provenance: {
+          source_system: "data_fusion_upload",
+          source_agency: "Data Fusion Hub",
+          ingested_at: new Date().toISOString(),
+        },
+      });
+
+      await Promise.all([refetchEvents(), fetchCrimeCount()]);
+      toast.success(`Imported ${inserted.toLocaleString()} records from ${file.name}`);
     } catch (error: any) {
       toast.error(error.message || "CSV import failed");
     } finally {
@@ -300,10 +377,20 @@ export default function DataFusionPage() {
     }
   };
 
+  // ── CSV Export (query Supabase → generate CSV client-side) ──
+
   const handleExportCsv = async () => {
     setExporting(true);
     try {
-      const blob = await apiGetBlob("/export/crime-events?limit=100000");
+      const { data, error } = await supabase
+        .from("crime_events")
+        .select("crime_id,crime_type,month,location,latitude,longitude,reported_by,falls_within,lsoa_code,lsoa_name,last_outcome_category,context")
+        .limit(10000);
+
+      if (error) throw error;
+
+      const csv = Papa.unparse(data || []);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -496,7 +583,7 @@ export default function DataFusionPage() {
               <Server className="w-5 h-5 text-success" />
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-bold">{activeAgencies}/{agencies.length || 6}</p>
+              <p className="text-xl sm:text-2xl font-bold">{activeAgencies}/{agencies.length}</p>
               <p className="text-xs sm:text-sm text-muted-foreground">Agencies Online</p>
             </div>
           </div>
@@ -518,8 +605,8 @@ export default function DataFusionPage() {
               <HardDrive className="w-5 h-5 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-bold">2.4 TB</p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Data Storage</p>
+              <p className="text-xl sm:text-2xl font-bold">{events.length}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Ingestion Events</p>
             </div>
           </div>
         </div>
@@ -578,8 +665,8 @@ export default function DataFusionPage() {
                   <div className="flex flex-wrap items-center gap-3 mb-1">
                     <span className="font-medium">{agency.name}</span>
                     <Badge variant="outline" className="font-mono text-xs">{agency.code}</Badge>
-                    <Badge className={statusColors[agency.status as keyof typeof statusColors]}>
-                      {agency.status}
+                    <Badge className={statusColors[(agency.status as keyof typeof statusColors) || "pending"]}>
+                      {agency.status || "pending"}
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -652,7 +739,7 @@ export default function DataFusionPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-3 mb-1">
                   <span className="font-medium">{source.name}</span>
-                  <Badge className={dataStatusColors[source.status as keyof typeof dataStatusColors]}>
+                  <Badge className={dataStatusColors[source.status]}>
                     {source.status}
                   </Badge>
                 </div>
@@ -679,11 +766,11 @@ export default function DataFusionPage() {
         </div>
       </div>
 
-      {/* Backend Ingestion Events */}
+      {/* Ingestion Events */}
       <div className="bg-card border border-panel-border rounded-lg">
         <div className="p-4 border-b border-panel-border flex items-center justify-between">
-          <h2 className="font-semibold">Recent Ingestion Events (Backend)</h2>
-          <Badge variant="outline" className="text-xs">Supabase</Badge>
+          <h2 className="font-semibold">Recent Ingestion Events</h2>
+          <Badge variant="outline" className="text-xs">Live</Badge>
         </div>
         {eventsLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -691,7 +778,7 @@ export default function DataFusionPage() {
           </div>
         ) : eventsError ? (
           <div className="p-4 text-sm text-muted-foreground">
-            Backend unavailable: {eventsError}
+            Error loading events: {eventsError}
           </div>
         ) : events.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">
