@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiPost, apiPut, apiDelete } from "@/lib/api";
+import { apiPost, apiPut, apiDelete, apiPostForm, apiGetBlob } from "@/lib/api";
 import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,15 +33,22 @@ const statusColors = {
   pending: "bg-warning/20 text-warning border-warning/30",
 };
 
-// Static data sources for UI (these would be separate system in production)
-const dataSources = [
-  { name: "NPS Crime Database", status: "synced", records: "2.4M", lastSync: "2 min ago", health: 98 },
-  { name: "NIS Intelligence Feed", status: "syncing", records: "890K", lastSync: "syncing...", health: 95 },
-  { name: "Border Control System", status: "synced", records: "1.2M", lastSync: "5 min ago", health: 100 },
-  { name: "CCTV Analytics", status: "synced", records: "45K", lastSync: "1 min ago", health: 92 },
-  { name: "Financial Intelligence", status: "synced", records: "320K", lastSync: "10 min ago", health: 88 },
-  { name: "Vehicle Registry", status: "offline", records: "5.1M", lastSync: "2 hours ago", health: 0 },
-];
+type ImportSummary = {
+  filename: string;
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: number;
+  inserted: number;
+  event_id: string;
+};
+
+type DataSourceRow = {
+  name: string;
+  status: "synced" | "syncing" | "offline";
+  records: string;
+  lastSync: string;
+  health: number;
+};
 
 const dataStatusColors = {
   synced: "bg-success/20 text-success border-success/30",
@@ -51,12 +58,18 @@ const dataStatusColors = {
 
 export default function DataFusionPage() {
   const { agencies, loading, refetch } = useAgencies();
-  const { events, loading: eventsLoading, error: eventsError } = useBackendEvents();
+  const { events, loading: eventsLoading, error: eventsError, refetch: refetchEvents } = useBackendEvents();
   const { isAdmin } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingAgency, setEditingAgency] = useState<any>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -173,7 +186,140 @@ export default function DataFusionPage() {
   };
 
   const activeAgencies = agencies.filter(a => a.status === 'active').length;
-  const totalRecords = "9.95M"; // Static for demo
+
+  const parsedCounts = useMemo(() => {
+    return events
+      .map((e) => {
+        const match = (e.description || "").match(/Imported\\s+(\\d+)\\s+records\\s+from\\s+(\\d+)\\s+CSV\\s+rows;\\s+invalid_rows=(\\d+)/i);
+        if (!match) return null;
+        return {
+          inserted: Number(match[1]),
+          total: Number(match[2]),
+          invalid: Number(match[3]),
+          created_at: e.created_at,
+          source_system: e.provenance?.source_system || "unknown",
+        };
+      })
+      .filter((v): v is { inserted: number; total: number; invalid: number; created_at: string; source_system: string } => Boolean(v));
+  }, [events]);
+
+  const totalImportedRows = parsedCounts.reduce((acc, x) => acc + x.inserted, 0);
+  const totalRecords = totalImportedRows ? totalImportedRows.toLocaleString() : "0";
+
+  const dataSources = useMemo<DataSourceRow[]>(() => {
+    const lastBackendEvent = events[0];
+    const backendHealthy = !eventsError;
+    const csvImports = parsedCounts.filter((x) => x.source_system.includes("data_fusion"));
+    const csvInserted = csvImports.reduce((acc, x) => acc + x.inserted, 0);
+    const csvLastSync = csvImports[0]?.created_at || importSummary ? importSummary ? new Date().toISOString() : "" : "";
+
+    return [
+      {
+        name: "CSV Crime Feed (Kenya)",
+        status: importing ? "syncing" : csvInserted > 0 ? "synced" : "offline",
+        records: csvInserted.toLocaleString(),
+        lastSync: csvLastSync
+          ? formatDistanceToNow(new Date(csvLastSync), { addSuffix: true })
+          : "never",
+        health: importing ? 70 : csvInserted > 0 ? 96 : 0,
+      },
+      {
+        name: "Ingestion Events Backend",
+        status: backendHealthy ? "synced" : "offline",
+        records: events.length.toString(),
+        lastSync: lastBackendEvent
+          ? formatDistanceToNow(new Date(lastBackendEvent.created_at), { addSuffix: true })
+          : "no events",
+        health: backendHealthy ? 95 : 0,
+      },
+      {
+        name: "Connected Agencies Directory",
+        status: agencies.length ? "synced" : "offline",
+        records: agencies.length.toString(),
+        lastSync: agencies[0]
+          ? formatDistanceToNow(new Date(agencies[0].updated_at), { addSuffix: true })
+          : "never",
+        health: agencies.length ? Math.min(100, 40 + activeAgencies * 10) : 0,
+      },
+    ];
+  }, [events, eventsError, parsedCounts, importSummary, importing, agencies, activeAgencies]);
+
+  const handleSyncAll = async () => {
+    setSyncing(true);
+    try {
+      await Promise.all([refetch(), refetchEvents()]);
+      toast.success("Data fusion sync completed");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sync data sources");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleImportButton = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      toast.error("Please select a CSV file");
+      e.target.value = "";
+      return;
+    }
+
+    setImporting(true);
+    setImportProgress(10);
+    try {
+      const form = new FormData();
+      form.append("csv_file", file);
+      form.append("source_system", "data_fusion_upload");
+      form.append("source_agency", "Data Fusion Hub");
+
+      setImportProgress(35);
+      const result = await apiPostForm<ImportSummary & { status: string }>("/ingest/crime-csv", form);
+      setImportProgress(85);
+      setImportSummary({
+        filename: result.filename,
+        total_rows: result.total_rows,
+        valid_rows: result.valid_rows,
+        invalid_rows: result.invalid_rows,
+        inserted: result.inserted,
+        event_id: result.event_id,
+      });
+      await refetchEvents();
+      setImportProgress(100);
+      toast.success(`Imported ${result.inserted.toLocaleString()} records from ${result.filename}`);
+    } catch (error: any) {
+      toast.error(error.message || "CSV import failed");
+    } finally {
+      setImporting(false);
+      setTimeout(() => setImportProgress(0), 700);
+      e.target.value = "";
+    }
+  };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const blob = await apiGetBlob("/export/crime-events?limit=100000");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      a.href = url;
+      a.download = `farsi-crime-events-${ts}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Crime events CSV exported");
+    } catch (error: any) {
+      toast.error(error.message || "CSV export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const AgencyForm = ({ onSubmit, isEdit = false }: { onSubmit: (e: React.FormEvent) => void; isEdit?: boolean }) => (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -285,20 +431,51 @@ export default function DataFusionPage() {
           <p className="text-sm text-muted-foreground">Centralized multi-agency data integration platform</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm">
-            <Upload className="w-4 h-4 mr-2" />
-            Import
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImportCsv}
+          />
+          <Button variant="outline" size="sm" onClick={handleImportButton} disabled={importing}>
+            {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+            {importing ? "Importing..." : "Import CSV"}
           </Button>
-          <Button variant="outline" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Export
+          <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={exporting}>
+            {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            {exporting ? "Exporting..." : "Export CSV"}
           </Button>
-          <Button size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Sync All
+          <Button size="sm" onClick={handleSyncAll} disabled={syncing}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync All"}
           </Button>
         </div>
       </div>
+
+      {importing && (
+        <div className="bg-card border border-panel-border rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Importing CSV into crime_events</span>
+            <span className="font-medium">{importProgress}%</span>
+          </div>
+          <Progress value={importProgress} className="h-2" />
+        </div>
+      )}
+
+      {importSummary && !importing && (
+        <div className="bg-card border border-panel-border rounded-lg p-3 text-sm flex flex-wrap gap-4">
+          <span>
+            <span className="text-muted-foreground">Last import file:</span> {importSummary.filename}
+          </span>
+          <span>
+            <span className="text-muted-foreground">Inserted:</span> {importSummary.inserted.toLocaleString()}
+          </span>
+          <span>
+            <span className="text-muted-foreground">Invalid rows:</span> {importSummary.invalid_rows.toLocaleString()}
+          </span>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -330,7 +507,7 @@ export default function DataFusionPage() {
               <Activity className="w-5 h-5 text-warning" />
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-bold">94.5%</p>
+              <p className="text-xl sm:text-2xl font-bold">{Math.round(dataSources.reduce((acc, s) => acc + s.health, 0) / Math.max(1, dataSources.length))}%</p>
               <p className="text-xs sm:text-sm text-muted-foreground">System Health</p>
             </div>
           </div>
@@ -494,8 +671,8 @@ export default function DataFusionPage() {
                 </div>
                 <Progress value={source.health} className="h-2" />
               </div>
-              <Button variant="ghost" size="sm" className="shrink-0">
-                <RefreshCw className="w-4 h-4" />
+              <Button variant="ghost" size="sm" className="shrink-0" onClick={handleSyncAll} disabled={syncing}>
+                <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
               </Button>
             </div>
           ))}

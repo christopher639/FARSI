@@ -100,3 +100,38 @@ export async function apiDelete<T>(path: string): Promise<T> {
 
   return res.json() as Promise<T>;
 }
+
+export async function apiPostForm<T>(path: string, formData: FormData): Promise<T> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed: ${res.status}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+export async function apiGetBlob(path: string): Promise<Blob> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "GET",
+    headers: {
+      ...authHeaders,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed: ${res.status}`);
+  }
+
+  return res.blob();
+}
