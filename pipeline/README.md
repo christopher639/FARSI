@@ -24,7 +24,7 @@ python -m pipeline.ingest_crime_csv --csv data/crime/2025-11-kenya-simulated-str
 ### Generate Kenya-Simulated CSV (Avon-compatible schema)
 
 ```
-python -m pipeline.simulate_kenya_crime_data --month 2025-11 --rows 6000 --out data/crime/2025-11-kenya-simulated-street.csv --seed 42
+python -m pipeline.simulate_kenya_crime_data --month 2025-11 --rows 8000 --out data/crime/2025-11-kenya-simulated-street.csv --seed 42 --border-share 0.20 --min-per-county 5
 python -m pipeline.ingest_crime_csv --csv data/crime/2025-11-kenya-simulated-street.csv
 ```
 
