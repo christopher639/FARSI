@@ -12,6 +12,8 @@ export interface BackendEvent {
     source_system: string;
     source_agency?: string | null;
     ingested_at: string;
+    transformations?: string[];
+    dataset_version?: string | null;
   };
 }
 
@@ -42,6 +44,8 @@ export function useBackendEvents() {
           source_system: (row.provenance as any)?.source_system || "unknown",
           source_agency: (row.provenance as any)?.source_agency || null,
           ingested_at: (row.provenance as any)?.ingested_at || row.created_at,
+          transformations: (row.provenance as any)?.transformations || [],
+          dataset_version: (row.provenance as any)?.dataset_version || null,
         },
       }));
       setEvents(mapped);

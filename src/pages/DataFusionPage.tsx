@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiPost } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import Papa from "papaparse";
 import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building } from "lucide-react";
@@ -192,15 +193,27 @@ export default function DataFusionPage() {
   };
 
   const handleToggleAgencyConnection = async (agency: any) => {
-    const nextStatus = agency.status === "active" ? "inactive" : "active";
     try {
-      const { error } = await supabase
-        .from("connected_agencies")
-        .update({ status: nextStatus as any })
-        .eq("id", agency.id);
-      if (error) throw error;
-      toast.success(nextStatus === "active" ? `${agency.name} connected` : `${agency.name} disconnected`);
-      refetch();
+      if (agency.status === "active") {
+        await apiPost(`/agencies/${agency.id}/disconnect`, {});
+        toast.success(`${agency.name} disconnected`);
+      } else {
+        const result = await apiPost<{
+          pipeline?: { stages?: string[] };
+        }>(`/agencies/${agency.id}/connect`, {
+          source_system: `agency_connector_${String(agency.code || "unknown").toLowerCase()}`,
+          dataset_version: "kenya-v1",
+          run_training: true,
+          run_prediction: true,
+        });
+        const stages = result?.pipeline?.stages || [];
+        toast.success(
+          stages.length
+            ? `${agency.name} connected. Pipeline: ${stages.join(" -> ")}`
+            : `${agency.name} connected`
+        );
+      }
+      await Promise.all([refetch(), refetchEvents()]);
     } catch (error: any) {
       toast.error(error.message || "Failed to change agency connection");
     }
@@ -268,6 +281,17 @@ export default function DataFusionPage() {
       },
     ];
   }, [events, eventsError, crimeCount, importing, agencies, activeAgencies]);
+
+  const latestAgencyPipeline = useMemo(() => {
+    const pipelineByAgency = new Map<string, string[]>();
+    for (const event of events) {
+      const agencyName = event.provenance?.source_agency || "";
+      if (!agencyName || pipelineByAgency.has(agencyName)) continue;
+      if (!Array.isArray(event.provenance?.transformations)) continue;
+      pipelineByAgency.set(agencyName, event.provenance.transformations);
+    }
+    return pipelineByAgency;
+  }, [events]);
 
   const handleSyncAll = async () => {
     setSyncing(true);
@@ -693,6 +717,11 @@ export default function DataFusionPage() {
                       {formatDistanceToNow(new Date(agency.updated_at), { addSuffix: true })}
                     </span>
                   </div>
+                  {latestAgencyPipeline.get(agency.name)?.length ? (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Pipeline: {latestAgencyPipeline.get(agency.name)!.join(" -> ")}
+                    </div>
+                  ) : null}
                 </div>
                 {isAdmin && (
                   <div className="flex gap-2 shrink-0 flex-wrap">
