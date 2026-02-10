@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAgencies } from "@/hooks/useAgencies";
 import { useBackendEvents } from "@/hooks/useBackendEvents";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiPost, apiPostForm } from "@/lib/api";
+import { apiDelete, apiPost, apiPostForm } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import Papa from "papaparse";
-import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building } from "lucide-react";
+import { Database, Upload, Download, RefreshCw, Server, HardDrive, Activity, Clock, Plus, Edit, Trash2, Loader2, Building, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { z } from "zod";
@@ -56,26 +57,6 @@ const dataStatusColors = {
   syncing: "bg-warning/20 text-warning border-warning/30",
   offline: "bg-destructive/20 text-destructive border-destructive/30",
 };
-
-function hashRecord(row: Record<string, string>): string {
-  const parts = [
-    row["crime_type"] || row["Crime type"] || "",
-    row["month"] || row["Month"] || "",
-    row["location"] || row["Location"] || "",
-    row["latitude"] || row["Latitude"] || "",
-    row["longitude"] || row["Longitude"] || "",
-    row["reported_by"] || row["Reported by"] || "",
-  ];
-  const raw = parts.join("|");
-  const encoder = new TextEncoder();
-  const data = encoder.encode(raw);
-  // Simple hash for dedup — use a sync approach
-  let hash = 0;
-  for (let i = 0; i < data.length; i++) {
-    hash = ((hash << 5) - hash + data[i]) | 0;
-  }
-  return Math.abs(hash).toString(16).padStart(8, "0");
-}
 
 export default function DataFusionPage() {
   const { agencies, loading, refetch } = useAgencies();
@@ -353,96 +334,66 @@ export default function DataFusionPage() {
     setImportProgress(10);
 
     try {
-      const text = await file.text();
-      setImportProgress(20);
+      const formData = new FormData();
+      formData.append("csv_file", file);
+      formData.append("source_system", "data_fusion_upload");
+      formData.append("source_agency", "Data Fusion Hub");
+      setImportProgress(35);
 
-      const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
-      const rows = parsed.data;
-      setImportProgress(30);
-
-      const columnMap: Record<string, string> = {
-        "Crime type": "crime_type",
-        "Month": "month",
-        "Location": "location",
-        "Longitude": "longitude",
-        "Latitude": "latitude",
-        "Reported by": "reported_by",
-        "Falls within": "falls_within",
-        "LSOA code": "lsoa_code",
-        "LSOA name": "lsoa_name",
-        "Last outcome category": "last_outcome_category",
-        "Crime ID": "crime_id",
-        "Context": "context",
-      };
-
-      let validRows = 0;
-      let invalidRows = 0;
-      const records: any[] = [];
-
-      for (const row of rows) {
-        const mapped: Record<string, any> = {};
-        for (const [original, target] of Object.entries(columnMap)) {
-          if (row[original] !== undefined) mapped[target] = row[original] || null;
-          else if (row[target] !== undefined) mapped[target] = row[target] || null;
-        }
-
-        const lat = parseFloat(mapped.latitude);
-        const lon = parseFloat(mapped.longitude);
-        if (isNaN(lat) || isNaN(lon) || !mapped.crime_type) {
-          invalidRows++;
-          continue;
-        }
-
-        mapped.latitude = lat;
-        mapped.longitude = lon;
-        mapped.record_hash = hashRecord(row);
-        mapped.geo = { type: "Point", coordinates: [lon, lat] };
-        records.push(mapped);
-        validRows++;
-      }
-
-      setImportProgress(50);
-
-      let inserted = 0;
-      const chunkSize = 500;
-      for (let i = 0; i < records.length; i += chunkSize) {
-        const chunk = records.slice(i, i + chunkSize);
-        const { data, error } = await supabase.from("crime_events").upsert(chunk, { onConflict: "record_hash" });
-        if (error) throw error;
-        inserted += chunk.length;
-        setImportProgress(50 + Math.round((i / records.length) * 45));
-      }
-
+      const result = await apiPostForm<{
+        filename: string;
+        total_rows: number;
+        valid_rows: number;
+        invalid_rows: number;
+        inserted: number;
+      }>("/ingest/crime-csv", formData);
       setImportProgress(100);
       setImportSummary({
-        filename: file.name,
-        total_rows: rows.length,
-        valid_rows: validRows,
-        invalid_rows: invalidRows,
-        inserted,
+        filename: result.filename || file.name,
+        total_rows: Number(result.total_rows || 0),
+        valid_rows: Number(result.valid_rows || 0),
+        invalid_rows: Number(result.invalid_rows || 0),
+        inserted: Number(result.inserted || 0),
       });
-
-      // Log ingestion event
-      await supabase.from("ingestion_events").insert({
-        event_type: "csv_import",
-        title: `CSV Import: ${file.name}`,
-        description: `Imported ${inserted} records from ${rows.length} CSV rows; invalid_rows=${invalidRows}`,
-        modality: "csv",
-        provenance: {
-          source_system: "data_fusion_upload",
-          source_agency: "Data Fusion Hub",
-          ingested_at: new Date().toISOString(),
-        },
-      });
-
       await Promise.all([refetchEvents(), fetchCrimeCount()]);
-      toast.success(`Imported ${inserted.toLocaleString()} records from ${file.name}`);
+      toast.success(`Imported ${Number(result.inserted || 0).toLocaleString()} records from ${file.name}`);
     } catch (error: any) {
       toast.error(error.message || "CSV import failed");
     } finally {
       setImporting(false);
       setTimeout(() => setImportProgress(0), 700);
       e.target.value = "";
+    }
+  };
+
+  const handleDeleteIngestionEvent = async (eventId: string) => {
+    try {
+      await apiDelete(`/events/${eventId}`);
+      toast.success("Ingestion event deleted");
+      refetchEvents();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete ingestion event");
+    }
+  };
+
+  const handleDeleteAllCrimeData = async () => {
+    try {
+      const { error: crimeDeleteError } = await supabase
+        .from("crime_events")
+        .delete()
+        .gte("created_at", "1970-01-01T00:00:00Z");
+      if (crimeDeleteError) throw crimeDeleteError;
+
+      const { error: eventsDeleteError } = await supabase
+        .from("ingestion_events")
+        .delete()
+        .in("event_type", ["csv_import", "crime_csv_import"]);
+      if (eventsDeleteError) throw eventsDeleteError;
+
+      await Promise.all([fetchCrimeCount(), refetchEvents()]);
+      toast.success("All imported crime data deleted");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete imported crime data");
     }
   };
 
@@ -606,6 +557,33 @@ export default function DataFusionPage() {
             <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Syncing..." : "Sync All"}
           </Button>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Imported Data
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Delete Imported Crime Data
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will delete all rows in crime events and CSV import ingestion logs. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteAllCrimeData}>
+                    Delete Data
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </div>
 
@@ -883,9 +861,16 @@ export default function DataFusionPage() {
                     {event.provenance.source_agency ? ` • ${event.provenance.source_agency}` : ""}
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
+                <div className="flex items-center gap-2">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
+                  </div>
+                  {isAdmin && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteIngestionEvent(event.id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -895,3 +880,4 @@ export default function DataFusionPage() {
     </div>
   );
 }
+

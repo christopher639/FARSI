@@ -14,9 +14,9 @@ from ..supabase_client import get_supabase
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
 CANONICAL_ALIASES = {
-    "crime_type": ["crime type", "crime_type", "type"],
-    "month": ["month", "report_month"],
-    "location": ["location", "place", "incident_location"],
+    "crime_type": ["crime type", "crime_type", "type", "offense", "offence", "category", "incident_type", "primary_type"],
+    "month": ["month", "report_month", "date", "incident_date", "reported_date", "date_reported", "occurrence_date", "datetime"],
+    "location": ["location", "place", "incident_location", "address", "street", "block", "area", "district", "ward", "county", "neighborhood", "suburb"],
     "longitude": ["longitude", "lon", "lng", "long"],
     "latitude": ["latitude", "lat"],
     "reported_by": ["reported by", "reported_by", "reporting_agency"],
@@ -28,7 +28,7 @@ CANONICAL_ALIASES = {
     "context": ["context", "notes", "description"],
 }
 
-REQUIRED_CANONICAL = ["crime_type", "month", "location", "longitude", "latitude"]
+REQUIRED_CANONICAL = ["crime_type", "longitude", "latitude"]
 
 
 def _normalize_header(name: str) -> str:
@@ -61,6 +61,41 @@ def _crime_record_hash(row: dict[str, Any]) -> str:
         str(row.get("reported_by", "")),
     ]
     return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
+def _normalize_month(raw: str) -> str | None:
+    value = (raw or "").strip()
+    if not value:
+        return None
+
+    # Already month-like (YYYY-MM)
+    if len(value) >= 7 and value[4] == "-" and value[:4].isdigit() and value[5:7].isdigit():
+        return value[:7]
+
+    fmts = [
+        "%Y-%m-%d",
+        "%d-%m-%Y",
+        "%m/%d/%Y",
+        "%d/%m/%Y",
+        "%Y/%m/%d",
+        "%Y-%m-%d %H:%M:%S",
+        "%d-%m-%Y %H:%M:%S",
+        "%m/%d/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M:%S",
+    ]
+    for fmt in fmts:
+        try:
+            dt = datetime.strptime(value, fmt)
+            return dt.strftime("%Y-%m")
+        except ValueError:
+            continue
+
+    # Last resort: try ISO parser
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m")
+    except ValueError:
+        return None
 
 
 @router.post("/text")
@@ -199,11 +234,11 @@ def ingest_crime_csv(
         total_rows += 1
         try:
             crime_type = _field_value(row, header_lookup, "crime_type").strip()
-            month = _field_value(row, header_lookup, "month").strip()
-            location = _field_value(row, header_lookup, "location").strip()
+            month = _normalize_month(_field_value(row, header_lookup, "month")) or datetime.now(timezone.utc).strftime("%Y-%m")
+            location = _field_value(row, header_lookup, "location").strip() or "Unknown"
             lat = float(_field_value(row, header_lookup, "latitude") or "")
             lon = float(_field_value(row, header_lookup, "longitude") or "")
-            if not crime_type or not month or not location:
+            if not crime_type:
                 invalid_rows += 1
                 continue
         except (TypeError, ValueError):

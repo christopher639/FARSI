@@ -55,3 +55,23 @@ def get_event(event_id: str, _: str | None = Depends(allow_public_read("events.r
     if not result.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="event_not_found")
     return _to_out(result.data[0])
+
+
+@router.delete("/{event_id}")
+def delete_event(event_id: str, role: str = Depends(require_permission("events.write"))):
+    supabase = get_supabase()
+    now = datetime.now(timezone.utc).isoformat()
+    result = supabase.table("ingestion_events").delete().eq("id", event_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="event_not_found")
+    supabase.table("audit_logs").insert(
+        {
+            "actor": "api",
+            "role": role,
+            "action": "events.delete",
+            "target": event_id,
+            "metadata": {},
+            "created_at": now,
+        }
+    ).execute()
+    return {"status": "deleted"}
