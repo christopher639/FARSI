@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 import pandas as pd
-import numpy as np
+import numpy as np     
 import joblib
 from postgrest.exceptions import APIError
 

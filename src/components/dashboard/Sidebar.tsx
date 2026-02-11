@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useThreatAlerts } from "@/hooks/useThreatAlerts";
 
 interface NavItem {
   icon: React.ElementType;
@@ -33,8 +35,8 @@ interface Agency {
 
 const navItems: NavItem[] = [
   { icon: Shield, label: "Command Center", path: "/" },
-  { icon: Map, label: "Threat Heatmap", path: "/threat-heatmap", badge: 3 },
-  { icon: Bell, label: "Alerts", path: "/alerts", badge: 8 },
+  { icon: Map, label: "Threat Heatmap", path: "/threat-heatmap" },
+  { icon: Bell, label: "Alerts", path: "/alerts" },
   { icon: Network, label: "Network Analysis", path: "/network-analysis" },
   { icon: Eye, label: "Surveillance", path: "/surveillance" },
   { icon: FileText, label: "Intelligence Reports", path: "/intelligence-reports" },
@@ -66,9 +68,21 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onToggle, onClose }: SidebarProps) {
   const location = useLocation();
   const { isAdmin } = useAuth();
+  const { stats } = useDashboardStats();
+  const { alerts } = useThreatAlerts();
+
+  const navItemsWithLiveBadges: NavItem[] = navItems.map((item) => {
+    if (item.path === "/threat-heatmap") {
+      return { ...item, badge: stats.activeThreats };
+    }
+    if (item.path === "/alerts") {
+      return { ...item, badge: alerts.length };
+    }
+    return item;
+  });
 
   // Filter nav items based on role
-  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const filteredNavItems = navItemsWithLiveBadges.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside 
@@ -158,7 +172,7 @@ function NavButton({ icon: Icon, label, path, badge, isOpen, isActive, onNavigat
       <div className="relative flex-shrink-0">
         <Icon className={cn("w-5 h-5", isActive && "text-glow")} />
         {/* Badge on icon when collapsed */}
-        {badge && !isOpen && (
+        {badge !== undefined && !isOpen && (
           <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
             {badge}
           </span>
@@ -168,7 +182,7 @@ function NavButton({ icon: Icon, label, path, badge, isOpen, isActive, onNavigat
       {isOpen && (
         <>
           <span className="flex-1 text-left text-sm font-medium truncate">{label}</span>
-          {badge && (
+          {badge !== undefined && (
             <span className="min-w-[20px] h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center px-1.5">
               {badge}
             </span>
@@ -180,7 +194,7 @@ function NavButton({ icon: Icon, label, path, badge, isOpen, isActive, onNavigat
       {!isOpen && (
         <span className="absolute left-full ml-3 px-2 py-1.5 bg-card border border-panel-border rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg">
           {label}
-          {badge && <span className="ml-2 text-destructive">({badge})</span>}
+          {badge !== undefined && <span className="ml-2 text-destructive">({badge})</span>}
         </span>
       )}
     </NavLink>
