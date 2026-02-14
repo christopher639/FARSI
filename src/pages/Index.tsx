@@ -9,11 +9,16 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Shield, Users, FileText, Crosshair, Radio, RefreshCw, UserCog, Settings, Bell, ShieldCheck } from "lucide-react";
+import { apiGet } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { apiGet } from "@/lib/api";
 
 const Index = () => {
   const { stats, loading, refetch } = useDashboardStats();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [hotspots, setHotspots] = useState<Array<{ label: string; count: number; context?: string; latitude?: number; longitude?: number; last_reported?: string }>>([]);
+  const [loadingHotspots, setLoadingHotspots] = useState(false);
 
   const getThreatLevel = () => {
     if (stats.criticalZones >= 5) return 'CRITICAL';
@@ -44,6 +49,22 @@ const Index = () => {
   };
 
   const systemReadiness = getSystemReadiness();
+
+  const loadHotspots = async () => {
+    try {
+      setLoadingHotspots(true);
+      const data = await apiGet<{ hotspots: typeof hotspots }>("/analytics/predicted-hotspots");
+      setHotspots(data.hotspots || []);
+    } catch (err) {
+      console.error("Failed to load predicted hotspots", err);
+    } finally {
+      setLoadingHotspots(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadHotspots();
+  }, []);
 
   return (
     <div className="grid-pattern">
@@ -159,6 +180,49 @@ const Index = () => {
                   View Sample Records
                 </Button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="panel p-4 sm:p-5 border-panel-border">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-semibold">Predicted Hotspots</h2>
+                <p className="text-sm text-muted-foreground">
+                  Aggregated counts from recent reports act as a proxy score for the next deployment.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => void loadHotspots()} disabled={loadingHotspots}>
+                <RefreshCw className={`h-4 w-4 ${loadingHotspots ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {hotspots.length === 0 && !loadingHotspots && (
+                <p className="text-xs text-muted-foreground">No hotspots detected yet.</p>
+              )}
+              {hotspots.map((spot) => (
+                <div key={spot.label} className="rounded-lg border border-panel-border px-4 py-3 flex flex-col gap-1 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{spot.label}</span>
+                    <Badge className="bg-warning/20 text-warning border-warning/30">
+                      {spot.count} reports
+                    </Badge>
+                  </div>
+                  {spot.context && (
+                    <p className="text-xs text-muted-foreground italic line-clamp-2">{spot.context}</p>
+                  )}
+                  {(spot.latitude || spot.longitude) && (
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      {spot.latitude?.toFixed(4) ?? "?.???"} , {spot.longitude?.toFixed(4) ?? "?.???"}
+                    </span>
+                  )}
+                  {spot.last_reported && (
+                    <span className="text-[11px] text-muted-foreground">Last reported: {new Date(spot.last_reported).toLocaleString()}</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
