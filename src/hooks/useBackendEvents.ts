@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
 
 export interface BackendEvent {
   id: string;
@@ -14,6 +15,24 @@ export interface BackendEvent {
     ingested_at: string;
     transformations?: string[];
     dataset_version?: string | null;
+  };
+}
+
+function parseProvenance(input: unknown, fallbackIngestedAt: string): BackendEvent["provenance"] {
+  const value = (input && typeof input === "object" ? input : {}) as {
+    source_system?: string;
+    source_agency?: string | null;
+    ingested_at?: string;
+    transformations?: string[];
+    dataset_version?: string | null;
+  };
+
+  return {
+    source_system: value.source_system || "unknown",
+    source_agency: value.source_agency || null,
+    ingested_at: value.ingested_at || fallbackIngestedAt,
+    transformations: Array.isArray(value.transformations) ? value.transformations : [],
+    dataset_version: value.dataset_version || null,
   };
 }
 
@@ -40,18 +59,12 @@ export function useBackendEvents() {
         description: row.description,
         modality: row.modality || "text",
         created_at: row.created_at,
-        provenance: {
-          source_system: (row.provenance as any)?.source_system || "unknown",
-          source_agency: (row.provenance as any)?.source_agency || null,
-          ingested_at: (row.provenance as any)?.ingested_at || row.created_at,
-          transformations: (row.provenance as any)?.transformations || [],
-          dataset_version: (row.provenance as any)?.dataset_version || null,
-        },
+        provenance: parseProvenance(row.provenance, row.created_at),
       }));
       setEvents(mapped);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch ingestion events");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to fetch ingestion events"));
     } finally {
       setLoading(false);
     }
