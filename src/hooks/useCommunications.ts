@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { apiGet } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
 
 type Communication = {
   id: string;
@@ -25,8 +26,8 @@ export function useCommunications() {
       setLoading(true);
       const data = await apiGet<Communication[]>('/communications');
       setCommunications(data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch communications'));
       console.error('Error fetching communications:', err);
     } finally {
       setLoading(false);
