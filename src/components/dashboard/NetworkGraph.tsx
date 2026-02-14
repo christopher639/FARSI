@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Network, RefreshCw } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import { getErrorMessage } from "@/lib/errors";
 
 interface Node {
   id: string;
@@ -37,7 +38,7 @@ export function NetworkGraph() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadGraph = async () => {
+  const loadGraph = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -69,17 +70,17 @@ export function NetworkGraph() {
       }));
 
       setNodes(mapped);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setNodes([]);
-      setError(err?.message || "Failed to load network graph");
+      setError(getErrorMessage(err, "Failed to load network graph"));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadGraph();
-  }, []);
+    void loadGraph();
+  }, [loadGraph]);
 
   return (
     <div className="panel-glow flex flex-col h-full">
@@ -91,7 +92,7 @@ export function NetworkGraph() {
           <div>
             <h2 className="font-semibold text-foreground">Network Analysis</h2>
             <p className="text-xs text-muted-foreground font-mono">
-              {nodes.length} entities • {nodes.filter((n) => n.threat).length} flagged
+              {nodes.length} entities | {nodes.filter((n) => n.threat).length} flagged
             </p>
           </div>
         </div>
