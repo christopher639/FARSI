@@ -218,7 +218,7 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
 
       try {
         switch (method) {
-          case 'email':
+          case 'email': {
             // Enable email 2FA
             const { error: emailError } = await supabase
               .from('profiles')
@@ -233,16 +233,19 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
             setStep('success');
             toast.success('Email 2FA enabled successfully!');
             break;
+          }
 
-          case 'totp':
+          case 'totp': {
             // Show TOTP setup dialog
             setShowTotpSetup(true);
             setLoading(false);
             break;
+          }
 
-          case 'biometric':
+          case 'biometric': {
             await setupBiometric();
             break;
+          }
         }
       } catch (err: any) {
         console.error('Setup error:', err);

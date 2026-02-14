@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | null = null;
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -254,7 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isMountedRef.current = false;
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       if (roleRetryTimeoutRef.current) clearTimeout(roleRetryTimeoutRef.current);
       subscription.unsubscribe();
     };
