@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(surveillance.router)
     app.include_router(communications.router)
     app.include_router(crime_reports.router)
+    app.include_router(analytics.router)
     app.include_router(network.router)
     app.include_router(models_registry.router)
     app.include_router(inference.router)

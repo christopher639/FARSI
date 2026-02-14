@@ -497,7 +497,10 @@ export function ThreatHeatmap() {
                     <Tooltip direction="top" offset={[0, -6]} opacity={1}>
                       <div className="text-xs">
                         <div className="font-semibold">{r.crimeType}</div>
-                        <div>{r.areaName || "Unknown"}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {r.location || r.areaName || "Unknown location"}
+                        </div>
+                        {r.context && <div className="text-[10px] italic truncate">{r.context}</div>}
                         <div>Lat: {r.latitude.toFixed(4)}, Lng: {r.longitude.toFixed(4)}</div>
                       </div>
                     </Tooltip>

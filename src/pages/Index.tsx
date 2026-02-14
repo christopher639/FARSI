@@ -144,6 +144,25 @@ const Index = () => {
           </div>
         )}
 
+        {isAdmin && (
+          <div className="panel p-4 sm:p-5 border-dashed border-primary/30">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">
+                Use the curated crime pattern dataset to train threat-prediction models.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Badge className="bg-primary/20 text-primary border border-primary/40">API: /analytics/crime-patterns</Badge>
+                <p className="text-xs text-muted-foreground">
+                  Returns hour/day/month, geo, and narrative context for supervised learning. Pull this regularly for retraining.
+                </p>
+                <Button size="sm" variant="outline" onClick={() => window.open("/analytics/crime-patterns", "_blank")}>
+                  View Sample Records
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Threat Heatmap - Takes 2 columns */}
