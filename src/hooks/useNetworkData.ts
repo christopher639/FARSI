@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { apiGet } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
 
 type NetworkData = {
   id: string;
@@ -26,8 +27,8 @@ export function useNetworkData() {
       setLoading(true);
       const data = await apiGet<NetworkData[]>('/network');
       setNetworkData(data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch network data'));
       console.error('Error fetching network data:', err);
     } finally {
       setLoading(false);
