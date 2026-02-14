@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from "react-leaflet";
 import { MapPin, RefreshCw, Layers, AlertTriangle, Maximize2, Minimize2 } from "lucide-react";
 import L from "leaflet";
@@ -60,6 +60,16 @@ type AreaRisk = {
 
 type DataSource = "csv" | "supabase" | "backend";
 type MapView = "heatmap" | "points";
+type SupabaseCrimeRow = {
+  latitude: number | string;
+  longitude: number | string;
+  crime_type?: string | null;
+  month?: string | null;
+  location?: string | null;
+  lsoa_name?: string | null;
+  last_outcome_category?: string | null;
+  context?: string | null;
+};
 
 function FitBounds({ points }: { points: Array<[number, number]> }) {
   const map = useMap();
@@ -163,7 +173,7 @@ export function ThreatHeatmap() {
   const [showRiskOverlay, setShowRiskOverlay] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const loadFromCsv = async () => {
+  const loadFromCsv = useCallback(async () => {
     const res = await fetch(CSV_URL);
     if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
     const text = await res.text();
@@ -191,17 +201,17 @@ export function ThreatHeatmap() {
       .filter((r) => Number.isFinite(r.latitude) && Number.isFinite(r.longitude));
 
     return cleaned;
-  };
+  }, []);
 
-  const loadFromSupabase = async () => {
+  const loadFromSupabase = useCallback(async () => {
     const { data, error } = await supabase
       .from(SUPABASE_TABLE)
       .select("latitude, longitude, crime_type, month, location, lsoa_name, last_outcome_category, context");
 
     if (error) throw error;
 
-    const cleaned: CrimeRecord[] = (data || [])
-      .map((row: any) => ({
+    const cleaned: CrimeRecord[] = ((data || []) as SupabaseCrimeRow[])
+      .map((row) => ({
         latitude: Number(row.latitude),
         longitude: Number(row.longitude),
         crimeType: row.crime_type || "Unknown",
@@ -214,9 +224,9 @@ export function ThreatHeatmap() {
       .filter((r: CrimeRecord) => Number.isFinite(r.latitude) && Number.isFinite(r.longitude));
 
     return cleaned;
-  };
+  }, []);
 
-  const loadFromBackend = async () => {
+  const loadFromBackend = useCallback(async () => {
     const data = await apiGet<Array<{ lat: number; lon: number; score: number }>>("/heatmap");
     const cleaned: CrimeRecord[] = (data || []).map((row) => ({
       latitude: Number(row.lat),
@@ -228,9 +238,9 @@ export function ThreatHeatmap() {
       outcome: "",
     }));
     return cleaned;
-  };
+  }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -238,17 +248,17 @@ export function ThreatHeatmap() {
       const loaded =
         source === "supabase" ? await loadFromSupabase() : source === "backend" ? await loadFromBackend() : await loadFromCsv();
       setRecords(loaded);
-    } catch (err: any) {
-      setError(err?.message || "Failed to load crime data");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load crime data");
       setRecords([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadFromBackend, loadFromCsv, loadFromSupabase, source]);
 
   useEffect(() => {
-    loadData();
-  }, [source]);
+    void loadData();
+  }, [loadData]);
 
   const crimeTypes = useMemo(() => {
     const unique = new Set(records.map((r) => r.crimeType).filter(Boolean));
