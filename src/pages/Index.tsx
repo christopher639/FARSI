@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Shield, Users, FileText, Crosshair, Radio, RefreshCw, UserCog, Settings, Bell, ShieldCheck } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { useEffect, useState, useCallback } from "react";
-import { apiGet } from "@/lib/api";
 
 const Index = () => {
   const { stats, loading, refetch } = useDashboardStats();
