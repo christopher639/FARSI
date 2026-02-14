@@ -4,6 +4,7 @@ from . import (
     audit,
     auth,
     communications,
+    crime_reports,
     events,
     export_data,
     graph,

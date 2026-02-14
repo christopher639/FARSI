@@ -10,6 +10,7 @@ from .routes import (
     audit,
     auth,
     communications,
+    crime_reports,
     events,
     export_data,
     graph,
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(stats.router)
     app.include_router(surveillance.router)
     app.include_router(communications.router)
+    app.include_router(crime_reports.router)
     app.include_router(network.router)
     app.include_router(models_registry.router)
     app.include_router(inference.router)

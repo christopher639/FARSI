@@ -100,6 +100,28 @@ class IntelligenceReportOut(IntelligenceReportCreate):
     updated_at: datetime
 
 
+class CrimeReportCreate(BaseModel):
+    crime_type: str
+    description: Optional[str] = None
+    location_label: Optional[str] = None
+    latitude: float
+    longitude: float
+    reported_at: Optional[datetime] = None
+
+
+class CrimeReportOut(BaseModel):
+    id: str
+    crime_id: str
+    crime_type: Optional[str] = None
+    context: Optional[str] = None
+    location: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    reported_by: Optional[str] = None
+    month: Optional[str] = None
+    created_at: datetime
+
+
 class SurveillanceStreamCreate(BaseModel):
     name: str
     rtsp_url: Optional[str] = None

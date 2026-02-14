@@ -11,6 +11,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import ThreatHeatmapPage from "./pages/ThreatHeatmapPage";
+import CrimeReportPage from "./pages/CrimeReportPage";
 import AlertsPage from "./pages/AlertsPage";
 import NetworkAnalysisPage from "./pages/NetworkAnalysisPage";
 import SurveillancePage from "./pages/SurveillancePage";
@@ -44,6 +45,7 @@ const App = () => (
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<Index />} />
                 <Route path="/threat-heatmap" element={<ThreatHeatmapPage />} />
+                <Route path="/crime-reports" element={<CrimeReportPage />} />
                 <Route path="/alerts" element={<AlertsPage />} />
                 <Route path="/network-analysis" element={<NetworkAnalysisPage />} />
                 <Route path="/surveillance" element={<SurveillancePage />} />

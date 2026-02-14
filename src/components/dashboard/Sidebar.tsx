@@ -3,6 +3,7 @@ import {
   Shield, 
   Map, 
   Bell, 
+  MapPin,
   Network, 
   Eye,
   FileText,
@@ -36,6 +37,7 @@ interface Agency {
 const navItems: NavItem[] = [
   { icon: Shield, label: "Command Center", path: "/" },
   { icon: Map, label: "Threat Heatmap", path: "/threat-heatmap" },
+  { icon: MapPin, label: "Report Crime", path: "/crime-reports" },
   { icon: Bell, label: "Alerts", path: "/alerts" },
   { icon: Network, label: "Network Analysis", path: "/network-analysis" },
   { icon: Eye, label: "Surveillance", path: "/surveillance" },
