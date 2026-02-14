@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { apiGet } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
 
 type IntelligenceReport = {
   id: string;
@@ -19,17 +20,17 @@ export function useIntelligenceReports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiGet<IntelligenceReport[]>('/reports');
       setReports(data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch reports'));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchReports();
@@ -49,7 +50,7 @@ export function useIntelligenceReports() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchReports]);
 
   return { reports, loading, error, refetch: fetchReports };
 }
