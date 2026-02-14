@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getErrorMessage } from "@/lib/errors";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 async function getAuthHeaders() {
   const { data } = await supabase.auth.getSession();
@@ -11,7 +11,8 @@ async function getAuthHeaders() {
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(`${API_BASE_URL}${normalizedPath}`, {
     ...init,
     headers: {
       ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
