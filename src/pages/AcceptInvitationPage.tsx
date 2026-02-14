@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -32,16 +32,13 @@ export default function AcceptInvitationPage() {
     confirmPassword: '',
   });
 
-  useEffect(() => {
-    if (token) {
-      validateInvitation();
-    } else {
+  const validateInvitation = useCallback(async () => {
+    if (!token) {
       setError('No invitation token provided');
       setLoading(false);
+      return;
     }
-  }, [token]);
 
-  const validateInvitation = async () => {
     try {
       const { data, error } = await supabase
         .from('user_invitations')
@@ -76,7 +73,11 @@ export default function AcceptInvitationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    void validateInvitation();
+  }, [validateInvitation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,9 +116,9 @@ export default function AcceptInvitationPage() {
 
       toast.success('Account created successfully! You can now log in.');
       navigate('/login');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error accepting invitation:', err);
-      toast.error(err.message || 'Failed to create account');
+      toast.error(err instanceof Error ? err.message : 'Failed to create account');
     } finally {
       setSubmitting(false);
     }
