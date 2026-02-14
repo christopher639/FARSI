@@ -1,5 +1,5 @@
 import { Bell, Search, Clock, LogOut, ChevronDown, Settings, Menu } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,13 +35,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -57,7 +51,13 @@ export function Header({ onMenuClick }: HeaderProps) {
     } catch (error) {
       console.error("Error fetching profile:", error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      void fetchProfile();
+    }
+  }, [user, fetchProfile]);
 
   const handleSignOut = async () => {
     await signOut();
