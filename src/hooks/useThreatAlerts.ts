@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { apiGet } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
 
 type ThreatAlert = {
   id: string;
@@ -19,17 +20,17 @@ export function useThreatAlerts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiGet<ThreatAlert[]>('/alerts');
       setAlerts(data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch threat alerts'));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAlerts();
@@ -49,7 +50,7 @@ export function useThreatAlerts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchAlerts]);
 
   return { alerts, loading, error, refetch: fetchAlerts };
 }
