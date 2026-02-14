@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startRegistration } from "@simplewebauthn/browser";
 import { TotpSetupDialog } from "./TotpSetupDialog";
+import { getErrorMessage } from "@/lib/errors";
 
 type SetupMethod = 'totp' | 'biometric' | 'email';
 type StepType = 'intro' | 'verify-email' | 'selecting' | 'setting-up' | 'success';
@@ -154,9 +155,9 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
 
         setOtpSent(true);
         toast.success('Verification code sent to your email');
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error sending OTP:', err);
-        setError(err.message || 'Failed to send verification code');
+        setError(getErrorMessage(err, 'Failed to send verification code'));
       } finally {
         setSendingOtp(false);
       }
@@ -192,9 +193,9 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
         } else {
           setStep('selecting');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error verifying OTP:', err);
-        setError(err.message || 'Invalid verification code');
+        setError(getErrorMessage(err, 'Invalid verification code'));
       } finally {
         setLoading(false);
       }
@@ -247,9 +248,9 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
             break;
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Setup error:', err);
-        setError(err.message || 'Failed to set up security method');
+        setError(getErrorMessage(err, 'Failed to set up security method'));
         setStep('selecting');
       } finally {
         if (method !== 'totp') {
@@ -309,8 +310,8 @@ export const MandatorySecuritySetupDialog = forwardRef<HTMLDivElement, Mandatory
 
         setStep('success');
         toast.success('Biometric authentication enabled successfully!');
-      } catch (err: any) {
-        if (err.name === 'NotAllowedError') {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'NotAllowedError') {
           throw new Error("Biometric authentication was cancelled. Please try again.");
         }
         throw err;
