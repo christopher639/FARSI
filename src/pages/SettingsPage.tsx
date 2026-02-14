@@ -26,6 +26,23 @@ const settingsSections = [
   { icon: Globe, label: "Language", id: "language" },
 ];
 
+type ProfileRow = {
+  full_name: string | null;
+  username: string | null;
+  email: string | null;
+  department: string | null;
+  phone: string | null;
+  clearance_level: string | null;
+  badge_number: string | null;
+  avatar_url: string | null;
+  two_factor_enabled: boolean | null;
+  two_factor_method: "email" | "totp" | "both" | "none" | null;
+  totp_enabled: boolean | null;
+  biometric_enabled: boolean | null;
+  biometric_mandatory: boolean | null;
+  theme_preference: string | null;
+};
+
 export default function SettingsPage() {
   const { user } = useAuth();
   // Add this line to enable real-time notifications for the current user
@@ -82,21 +99,22 @@ export default function SettingsPage() {
       if (error) throw error;
 
       if (data) {
+        const typed = data as ProfileRow;
         setProfile({
-          full_name: data.full_name || "",
-          username: data.username || "",
-          email: data.email || user.email || "",
-          department: data.department || "",
-          phone: data.phone || "",
-          clearance_level: data.clearance_level || "unclassified",
-          badge_number: data.badge_number || "",
-          avatar_url: data.avatar_url || "",
-          two_factor_enabled: data.two_factor_enabled || false,
-          two_factor_method: (data as any).two_factor_method || "email",
-          totp_enabled: (data as any).totp_enabled || false,
-          biometric_enabled: (data as any).biometric_enabled || false,
-          biometric_mandatory: (data as any).biometric_mandatory || false,
-          theme_preference: data.theme_preference || "dark",
+          full_name: typed.full_name || "",
+          username: typed.username || "",
+          email: typed.email || user.email || "",
+          department: typed.department || "",
+          phone: typed.phone || "",
+          clearance_level: typed.clearance_level || "unclassified",
+          badge_number: typed.badge_number || "",
+          avatar_url: typed.avatar_url || "",
+          two_factor_enabled: typed.two_factor_enabled || false,
+          two_factor_method: typed.two_factor_method || "email",
+          totp_enabled: typed.totp_enabled || false,
+          biometric_enabled: typed.biometric_enabled || false,
+          biometric_mandatory: typed.biometric_mandatory || false,
+          theme_preference: typed.theme_preference || "dark",
         });
       }
     } catch (error) {
