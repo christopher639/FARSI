@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getErrorMessage } from '@/lib/errors';
 
 type Agency = {
   id: string;
@@ -30,8 +31,8 @@ export function useAgencies() {
       if (fetchError) throw fetchError;
       setAgencies(data || []);
       setError(null);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch agencies'));
       console.error('Error fetching agencies:', err);
     } finally {
       setLoading(false);
