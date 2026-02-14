@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { apiGet, apiPost } from "@/lib/api";
 import { getErrorMessage } from "@/lib/errors";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type CrimeReport = {
   id: string;
@@ -41,6 +43,7 @@ const CRIME_TYPES = [
 ];
 
 export default function CrimeReportPage() {
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [loadingReports, setLoadingReports] = useState(true);
@@ -57,8 +60,18 @@ export default function CrimeReportPage() {
       setLoadingReports(true);
       const data = await apiGet<CrimeReport[]>("/crime-reports");
       setReports(data || []);
-    } catch (err: unknown) {
-      toast.error(getErrorMessage(err, "Failed to load recent crime reports"));
+    } catch (apiErr: unknown) {
+      const { data, error } = await supabase
+        .from("crime_events")
+        .select("id,crime_id,crime_type,context,location,latitude,longitude,reported_by,month,created_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) {
+        toast.error(getErrorMessage(apiErr, "Failed to load recent crime reports"));
+        return;
+      }
+      setReports((data || []) as CrimeReport[]);
     } finally {
       setLoadingReports(false);
     }
@@ -103,7 +116,7 @@ export default function CrimeReportPage() {
 
   const locationCapturedLabel = useMemo(() => {
     if (!location) return "No device location captured yet";
-    return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)} (±${Math.round(location.accuracy)}m)`;
+    return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)} (+/-${Math.round(location.accuracy)}m)`;
   }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,14 +134,36 @@ export default function CrimeReportPage() {
         throw new Error("Location is required. Enable GPS/location services and try again.");
       }
 
-      await apiPost("/crime-reports", {
-        crime_type: formData.crimeType.trim(),
-        description: formData.description.trim() || null,
-        location_label: formData.locationLabel.trim() || null,
-        latitude: freshLocation.latitude,
-        longitude: freshLocation.longitude,
-        reported_at: new Date().toISOString(),
-      });
+      try {
+        await apiPost("/crime-reports", {
+          crime_type: formData.crimeType.trim(),
+          description: formData.description.trim() || null,
+          location_label: formData.locationLabel.trim() || null,
+          latitude: freshLocation.latitude,
+          longitude: freshLocation.longitude,
+          reported_at: new Date().toISOString(),
+        });
+      } catch (backendErr: unknown) {
+        const { error } = await supabase.from("crime_events").insert({
+          crime_type: formData.crimeType.trim(),
+          context: formData.description.trim() || null,
+          location: formData.locationLabel.trim() || null,
+          latitude: freshLocation.latitude,
+          longitude: freshLocation.longitude,
+          reported_by: user?.id || null,
+          month: new Date().toISOString().slice(0, 7),
+          created_at: new Date().toISOString(),
+        });
+
+        if (error) {
+          throw new Error(
+            `${getErrorMessage(backendErr, "Backend unavailable")}. Fallback insert failed: ${getErrorMessage(
+              error,
+              "database error"
+            )}`
+          );
+        }
+      }
 
       toast.success("Crime event recorded in real time");
       setFormData((prev) => ({
@@ -138,7 +173,12 @@ export default function CrimeReportPage() {
       }));
       await fetchRecentReports();
     } catch (err: unknown) {
-      toast.error(getErrorMessage(err, "Failed to submit crime report"));
+      const msg = getErrorMessage(err, "Failed to submit crime report");
+      if (msg.toLowerCase().includes("failed to fetch")) {
+        toast.error("Reporting service is unreachable. Check backend/API connectivity.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }
