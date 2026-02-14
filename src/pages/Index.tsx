@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Shield, Users, FileText, Crosshair, Radio, RefreshCw, UserCog, Settings, Bell, ShieldCheck } from "lucide-react";
 import { apiGet } from "@/lib/api";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { apiGet } from "@/lib/api";
 
 const Index = () => {
@@ -50,7 +50,7 @@ const Index = () => {
 
   const systemReadiness = getSystemReadiness();
 
-  const loadHotspots = async () => {
+  const loadHotspots = useCallback(async () => {
     try {
       setLoadingHotspots(true);
       const data = await apiGet<{ hotspots: typeof hotspots }>("/analytics/predicted-hotspots");
@@ -60,11 +60,11 @@ const Index = () => {
     } finally {
       setLoadingHotspots(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadHotspots();
-  }, []);
+  }, [loadHotspots]);
 
   return (
     <div className="grid-pattern">
