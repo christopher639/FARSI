@@ -26,6 +26,10 @@ def login(payload: LoginRequest):
             role = "admin"
         elif any(r.get("role") == "analyst" for r in roles):
             role = "analyst"
+        elif any(r.get("role") == "security_agent" for r in roles):
+            role = "security_agent"
+        elif any(r.get("role") == "viewer" for r in roles):
+            role = "viewer"
         elif roles:
             role = roles[0].get("role", "viewer")
     return TokenResponse(access_token=auth_response.session.access_token, role=role)

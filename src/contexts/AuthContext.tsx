@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useRef, useC
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'admin' | 'analyst' | 'viewer';
+type AppRole = 'admin' | 'analyst' | 'viewer' | 'security_agent';
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface AuthContextType {
@@ -14,6 +14,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isAnalyst: boolean;
   isViewer: boolean;
+  isSecurityAgent: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -351,6 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: userRole === 'admin',
     isAnalyst: userRole === 'analyst',
     isViewer: userRole === 'viewer',
+    isSecurityAgent: userRole === 'security_agent',
     signIn,
     signUp,
     signOut,

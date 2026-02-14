@@ -26,12 +26,12 @@ const createUserSchema = z.object({
   badgeNumber: z.string().max(50).optional(),
   phone: z.string().max(20).optional(),
   clearanceLevel: z.enum(['top_secret', 'secret', 'confidential', 'unclassified']),
-  role: z.enum(['admin', 'analyst', 'viewer']),
+  role: z.enum(['admin', 'analyst', 'viewer', 'security_agent']),
 });
 
 const inviteUserSchema = z.object({
   email: z.string().trim().email({ message: 'Invalid email' }).max(255),
-  role: z.enum(['admin', 'analyst', 'viewer']),
+  role: z.enum(['admin', 'analyst', 'viewer', 'security_agent']),
   clearanceLevel: z.enum(['top_secret', 'secret', 'confidential', 'unclassified']),
   department: z.string().max(100).optional(),
 });
@@ -42,7 +42,7 @@ const updateUserSchema = z.object({
   badgeNumber: z.string().max(50).optional(),
   phone: z.string().max(20).optional(),
   clearanceLevel: z.enum(['top_secret', 'secret', 'confidential', 'unclassified']),
-  role: z.enum(['admin', 'analyst', 'viewer']),
+  role: z.enum(['admin', 'analyst', 'viewer', 'security_agent']),
   status: z.enum(['active', 'inactive', 'suspended']),
 });
 
@@ -108,13 +108,13 @@ export default function UsersPage() {
     badgeNumber: '',
     phone: '',
     clearanceLevel: 'unclassified' as const,
-    role: 'viewer' as const,
+    role: 'security_agent' as const,
   });
 
   // Form state for inviting user
   const [inviteData, setInviteData] = useState({
     email: '',
-    role: 'viewer' as const,
+    role: 'security_agent' as const,
     clearanceLevel: 'unclassified' as const,
     department: '',
   });
@@ -126,7 +126,7 @@ export default function UsersPage() {
     badgeNumber: '',
     phone: '',
     clearanceLevel: 'unclassified' as const,
-    role: 'viewer' as const,
+    role: 'security_agent' as const,
     status: 'active' as const,
   });
 
@@ -186,11 +186,11 @@ export default function UsersPage() {
       badgeNumber: '',
       phone: '',
       clearanceLevel: 'unclassified',
-      role: 'viewer',
+      role: 'security_agent',
     });
     setInviteData({
       email: '',
-      role: 'viewer',
+      role: 'security_agent',
       clearanceLevel: 'unclassified',
       department: '',
     });
@@ -206,7 +206,7 @@ export default function UsersPage() {
       badgeNumber: user.badge_number || '',
       phone: user.phone || '',
       clearanceLevel: user.clearance_level as any,
-      role: (userRole !== 'No Role' ? userRole : 'viewer') as any,
+      role: (userRole !== 'No Role' ? userRole : 'security_agent') as any,
       status: user.status as any,
     });
     setIsEditDialogOpen(true);
@@ -427,6 +427,7 @@ export default function UsersPage() {
       case 'admin': return 'bg-destructive/20 text-destructive border-destructive/30';
       case 'analyst': return 'bg-primary/20 text-primary border-primary/30';
       case 'viewer': return 'bg-success/20 text-success border-success/30';
+      case 'security_agent': return 'bg-amber-500/20 text-amber-500 border-amber-500/30';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -642,6 +643,7 @@ export default function UsersPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="viewer">Viewer</SelectItem>
+                                <SelectItem value="security_agent">Security Agent</SelectItem>
                                 <SelectItem value="analyst">Analyst</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
                               </SelectContent>
@@ -650,7 +652,7 @@ export default function UsersPage() {
                         </div>
                         
                         <p className="text-xs text-muted-foreground">
-                          Admin: Full access • Analyst: Create & edit data • Viewer: Read-only access
+                          Admin: Full access | Analyst: Create and edit data | Security Agent: Report field crimes | Viewer: Read-only access
                         </p>
 
                         {/* Submit Button */}
@@ -709,6 +711,7 @@ export default function UsersPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="viewer">Viewer</SelectItem>
+                                <SelectItem value="security_agent">Security Agent</SelectItem>
                                 <SelectItem value="analyst">Analyst</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
                               </SelectContent>
@@ -1170,6 +1173,7 @@ export default function UsersPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="viewer">Viewer</SelectItem>
+                                <SelectItem value="security_agent">Security Agent</SelectItem>
                       <SelectItem value="analyst">Analyst</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
@@ -1245,3 +1249,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+

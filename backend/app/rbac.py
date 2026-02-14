@@ -60,6 +60,14 @@ ROLE_PERMISSIONS = {
         "inference.read",
         "graph.read",
     },
+    "security_agent": {
+        "events.read",
+        "alerts.read",
+        "reports.read",
+        "reports.write",
+        "heatmap.read",
+        "graph.read",
+    },
     "ingestor": {
         "ingest.write",
         "events.write",

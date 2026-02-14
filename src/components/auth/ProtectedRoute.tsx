@@ -2,10 +2,11 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
-  requiredRole?: 'admin' | 'analyst' | 'viewer';
+  requiredRole?: 'admin' | 'analyst' | 'viewer' | 'security_agent';
+  requiredRoles?: Array<'admin' | 'analyst' | 'viewer' | 'security_agent'>;
 }
 
-export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
+export function ProtectedRoute({ requiredRole, requiredRoles }: ProtectedRouteProps) {
   const { user, loading, userRole, isAdmin } = useAuth();
 
   if (loading) {
@@ -52,6 +53,19 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
 
   // Check role requirements
   if (requiredRole === 'admin' && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+          <p className="text-muted-foreground">
+            You don't have permission to access this page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (requiredRoles && requiredRoles.length > 0 && (!userRole || !requiredRoles.includes(userRole))) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">

@@ -45,7 +45,6 @@ const App = () => (
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<Index />} />
                 <Route path="/threat-heatmap" element={<ThreatHeatmapPage />} />
-                <Route path="/crime-reports" element={<CrimeReportPage />} />
                 <Route path="/alerts" element={<AlertsPage />} />
                 <Route path="/network-analysis" element={<NetworkAnalysisPage />} />
                 <Route path="/surveillance" element={<SurveillancePage />} />
@@ -55,6 +54,9 @@ const App = () => (
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/system-settings" element={<SystemSettingsPage />} />
+                <Route element={<ProtectedRoute requiredRoles={["admin", "analyst", "security_agent"]} />}>
+                  <Route path="/crime-reports" element={<CrimeReportPage />} />
+                </Route>
               </Route>
             </Route>
             

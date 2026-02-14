@@ -35,6 +35,10 @@ def _fetch_user_role(user_id: str) -> str | None:
         return "admin"
     if "analyst" in roles:
         return "analyst"
+    if "security_agent" in roles:
+        return "security_agent"
+    if "viewer" in roles:
+        return "viewer"
     return roles[0]
 
 

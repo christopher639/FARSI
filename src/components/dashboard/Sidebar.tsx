@@ -26,6 +26,7 @@ interface NavItem {
   path: string;
   badge?: number;
   adminOnly?: boolean;
+  allowedRoles?: Array<"admin" | "analyst" | "viewer" | "security_agent">;
 }
 
 interface Agency {
@@ -37,7 +38,7 @@ interface Agency {
 const navItems: NavItem[] = [
   { icon: Shield, label: "Command Center", path: "/" },
   { icon: Map, label: "Threat Heatmap", path: "/threat-heatmap" },
-  { icon: MapPin, label: "Report Crime", path: "/crime-reports" },
+  { icon: MapPin, label: "Report Crime", path: "/crime-reports", allowedRoles: ["admin", "analyst", "security_agent"] },
   { icon: Bell, label: "Alerts", path: "/alerts" },
   { icon: Network, label: "Network Analysis", path: "/network-analysis" },
   { icon: Eye, label: "Surveillance", path: "/surveillance" },
@@ -69,7 +70,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onToggle, onClose }: SidebarProps) {
   const location = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, userRole } = useAuth();
   const { stats } = useDashboardStats();
   const { alerts } = useThreatAlerts();
 
@@ -84,7 +85,11 @@ export function Sidebar({ isOpen, onToggle, onClose }: SidebarProps) {
   });
 
   // Filter nav items based on role
-  const filteredNavItems = navItemsWithLiveBadges.filter(item => !item.adminOnly || isAdmin);
+  const filteredNavItems = navItemsWithLiveBadges.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.allowedRoles && (!userRole || !item.allowedRoles.includes(userRole))) return false;
+    return true;
+  });
 
   return (
     <aside 
