@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
+from typing import Any
 from typing import Any
 
 from ..deps import allow_public_read
+from ..deps import require_permission
 from ..supabase_client import get_supabase
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -75,4 +77,52 @@ def predicted_hotspots(_: str | None = Depends(allow_public_read("events.read"))
     return {
         "hotspots": hotspots,
         "note": "Counts are used as a proxy score; treat them as signals for further model-driven planning.",
+    }
+
+
+@router.post("/refresh-hotspots")
+def refresh_hotspots(_: str = Depends(require_permission("heatmap.write"))):
+    supabase = get_supabase()
+    # Aggregate recent crime counts per grid cell
+    agg = (
+        supabase.table("crime_events")
+        .select("latitude, longitude, location, crime_type")
+        .neq("latitude", None)
+        .neq("longitude", None)
+        .order("created_at", desc=True)
+        .limit(2000)
+        .execute()
+    )
+    if agg.error:
+        raise RuntimeError(agg.error.message)
+
+    counts: dict[str, dict[str, Any]] = {}
+    for row in agg.data or []:
+        key = f"{row.get('latitude'):.4f}-{row.get('longitude'):.4f}"
+        counts.setdefault(key, {
+            "lat": row.get("latitude"),
+            "lon": row.get("longitude"),
+            "score": 0,
+            "label": row.get("location") or row.get("crime_type") or "Unknown",
+        })["score"] += 1
+
+    cells = sorted(counts.values(), key=lambda x: x["score"], reverse=True)[:10]
+    payload = []
+    now = datetime.now(timezone.utc).isoformat()
+    for cell in cells:
+        payload.append({
+            "lat": cell["lat"],
+            "lon": cell["lon"],
+            "score": float(cell["score"]),
+            "window_start": now,
+            "window_end": now,
+        })
+
+    response = supabase.table("threat_heatmap_cells").upsert(payload).execute()
+    if response.error:
+        raise RuntimeError(response.error.message)
+
+    return {
+        "updated": len(payload),
+        "note": "Top 10 locations upserted into threat_heatmap_cells for visualizations.",
     }

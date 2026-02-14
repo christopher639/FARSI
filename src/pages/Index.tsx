@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Shield, Users, FileText, Crosshair, Radio, RefreshCw, UserCog, Settings, Bell, ShieldCheck } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import { useEffect, useState, useCallback } from "react";
 
 const Index = () => {
@@ -60,6 +60,15 @@ const Index = () => {
       setLoadingHotspots(false);
     }
   }, []);
+
+  const triggerHotspotRefresh = useCallback(async () => {
+    try {
+      await apiPost("/analytics/refresh-hotspots", {});
+      void loadHotspots();
+    } catch (err) {
+      console.error("Failed to refresh hotspots", err);
+    }
+  }, [loadHotspots]);
 
   useEffect(() => {
     void loadHotspots();
@@ -192,10 +201,16 @@ const Index = () => {
                   Aggregated counts from recent reports act as a proxy score for the next deployment.
                 </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => void loadHotspots()} disabled={loadingHotspots}>
-                <RefreshCw className={`h-4 w-4 ${loadingHotspots ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => void loadHotspots()} disabled={loadingHotspots}>
+                  <RefreshCw className={`h-4 w-4 ${loadingHotspots ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => void triggerHotspotRefresh()}>
+                  <RefreshCw className="h-4 w-4" />
+                  Recalculate
+                </Button>
+              </div>
             </div>
             <div className="mt-4 grid gap-3">
               {hotspots.length === 0 && !loadingHotspots && (
