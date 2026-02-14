@@ -28,4 +28,9 @@
 7. **Hotspot predictions**
    - Use `GET /analytics/predicted-hotspots` to retrieve the 5 most frequently reported locations (counts are proxies for risk). Link them back to your deployment schedule or geofencing logic.
    - Trigger `POST /analytics/refresh-hotspots` to recalc the top 10 heatmap cells after new batches have been ingested. Call this from your scheduler or manually when new crime data arrives.
+
+8. **Sync live crime data**
+   - Run `python scripts/sync_crime_events.py` once you configure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`.
+   - The script stores a live extract in `data/crime/crime_events_live.parquet`, which your notebook can load via `pd.read_parquet` in place of the CSV.
+   - Automate this script before retraining so your model and analytics always use the most recent events.
    - Because the endpoint uses `allow_public_read("events.read")`, only authenticated roles with that permission (or public read if enabled) can access the payload. Ensure service accounts are provisioned correctly when automating retraining.
