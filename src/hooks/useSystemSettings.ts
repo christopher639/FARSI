@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getErrorMessage } from "@/lib/errors";
 
 interface SecuritySettings {
   mandatory: boolean;
@@ -9,6 +10,7 @@ interface SecuritySettings {
 interface SystemSettings {
   security_2fa_enforcement: SecuritySettings;
 }
+type SettingValue = Record<string, unknown> | string | number | boolean | null;
 
 export function useSystemSettings() {
   const [settings, setSettings] = useState<SystemSettings>({
@@ -25,7 +27,7 @@ export function useSystemSettings() {
 
       if (error) throw error;
 
-      const settingsMap: Record<string, any> = {};
+      const settingsMap: Record<string, SettingValue> = {};
       data?.forEach((row) => {
         settingsMap[row.setting_key] = row.setting_value;
       });
@@ -33,15 +35,15 @@ export function useSystemSettings() {
       setSettings({
         security_2fa_enforcement: settingsMap.security_2fa_enforcement || { mandatory: false, method: 'totp' }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching system settings:", err);
-      setError(err.message);
+      setError(getErrorMessage(err, "Failed to fetch system settings"));
     } finally {
       setLoading(false);
     }
   };
 
-  const updateSetting = async (key: string, value: any) => {
+  const updateSetting = async (key: string, value: SettingValue) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -57,9 +59,9 @@ export function useSystemSettings() {
 
       await fetchSettings();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating system setting:", err);
-      return { success: false, error: err.message };
+      return { success: false, error: getErrorMessage(err, "Failed to update system setting") };
     }
   };
 
