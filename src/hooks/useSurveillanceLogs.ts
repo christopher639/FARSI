@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { apiGet } from '@/lib/api';
+import { getErrorMessage } from '@/lib/errors';
 
 type SurveillanceLog = {
   id: string;
@@ -17,17 +18,17 @@ export function useSurveillanceLogs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiGet<SurveillanceLog[]>('/surveillance/logs');
       setLogs(data || []);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch surveillance logs'));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchLogs();
@@ -47,7 +48,7 @@ export function useSurveillanceLogs() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchLogs]);
 
   return { logs, loading, error, refetch: fetchLogs };
 }
