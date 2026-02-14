@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 type AppRole = 'admin' | 'analyst' | 'viewer';
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 interface AuthContextType {
   user: User | null;
@@ -35,9 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Track if role has been fetched for current user
   const roleLoadedRef = useRef(false);
   
-  // Inactivity timeout (30 minutes)
-  const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
-
   const withTimeout = async <T,>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> => {
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<T>((_, reject) => {
@@ -122,16 +120,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     lastActivityRef.current = Date.now();
   }, []);
 
+  const signOut = useCallback(async () => {
+    isInitializedRef.current = false;
+    roleLoadedRef.current = false;
+    currentUserIdRef.current = null;
+    await supabase.auth.signOut();
+    setUserRole(null);
+    setUser(null);
+    setSession(null);
+  }, []);
+
   // Check for inactivity and sign out if needed
   const checkInactivity = useCallback(async () => {
     if (!session) return;
     
     const timeSinceActivity = Date.now() - lastActivityRef.current;
-    if (timeSinceActivity > INACTIVITY_TIMEOUT) {
+    if (timeSinceActivity > INACTIVITY_TIMEOUT_MS) {
       console.log('User inactive for too long, signing out...');
       await signOut();
     }
-  }, [session]);
+  }, [session, signOut]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
@@ -334,16 +342,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return { error };
   };
-
-  const signOut = useCallback(async () => {
-    isInitializedRef.current = false;
-    roleLoadedRef.current = false;
-    currentUserIdRef.current = null;
-    await supabase.auth.signOut();
-    setUserRole(null);
-    setUser(null);
-    setSession(null);
-  }, []);
 
   const value = {
     user,
