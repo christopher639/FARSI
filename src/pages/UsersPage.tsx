@@ -78,6 +78,16 @@ type Invitation = {
   invited_by: string;
 };
 
+type RoleValue = 'admin' | 'analyst' | 'viewer' | 'security_agent';
+
+const ROLE_FILTER_OPTIONS: Array<{ value: 'all' | RoleValue; label: string }> = [
+  { value: 'all', label: 'All roles' },
+  { value: 'admin', label: 'Admins' },
+  { value: 'analyst', label: 'Analysts' },
+  { value: 'viewer', label: 'Viewers' },
+  { value: 'security_agent', label: 'Security agents' },
+];
+
 export default function UsersPage() {
   const { isAdmin, user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -97,6 +107,8 @@ export default function UsersPage() {
   const [resendingInvite, setResendingInvite] = useState<string | null>(null);
   const [cancellingInvite, setCancellingInvite] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('create');
+  const [roleFilter, setRoleFilter] = useState<'all' | RoleValue>('all');
+  const [refreshingList, setRefreshingList] = useState(false);
 
   // Form state for creating user
   const [formData, setFormData] = useState({
@@ -173,6 +185,17 @@ export default function UsersPage() {
       setInvitations(data || []);
     } catch (error) {
       console.error('Error fetching invitations:', error);
+    }
+  };
+
+  const handleRefreshUsers = async () => {
+    if (refreshingList) return;
+    setRefreshingList(true);
+    try {
+      await fetchUsers();
+      await fetchInvitations();
+    } finally {
+      setRefreshingList(false);
     }
   };
 
@@ -454,11 +477,16 @@ export default function UsersPage() {
     return new Date(expiresAt) < new Date();
   };
 
-  const filteredUsers = users.filter(user =>
-    user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (user.department && user.department.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredUsers = users.filter((user) => {
+    const matchesText =
+      user.full_name.toLowerCase().includes(normalizedQuery) ||
+      user.email.toLowerCase().includes(normalizedQuery) ||
+      (user.department && user.department.toLowerCase().includes(normalizedQuery));
+    const roleLabel = getUserRole(user.user_id);
+    const matchesRole = roleFilter === 'all' || roleLabel === roleFilter;
+    return matchesText && matchesRole;
+  });
 
   const pendingInvitations = invitations.filter(inv => !isInvitationExpired(inv.expires_at));
   const expiredInvitations = invitations.filter(inv => isInvitationExpired(inv.expires_at));
@@ -776,15 +804,48 @@ export default function UsersPage() {
 
       <Card className="bg-card/50 border-primary/20">
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-background/50"
-              />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center w-full">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-background/50"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={roleFilter}
+                  onValueChange={(value) => setRoleFilter(value as 'all' | RoleValue)}
+                >
+                  <SelectTrigger className="min-w-[150px] h-10 bg-background/50">
+                    <SelectValue placeholder="Filter by role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_FILTER_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-10 whitespace-nowrap flex items-center gap-2"
+                  onClick={handleRefreshUsers}
+                  disabled={refreshingList}
+                >
+                  {refreshingList ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+              </div>
             </div>
             <Badge variant="outline" className="text-muted-foreground w-fit">
               {filteredUsers.length} Users
