@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -158,6 +158,17 @@ class HeatmapCellOut(HeatmapCellCreate):
     id: str
     created_at: datetime
 
+
+class HeatmapAreaSummary(BaseModel):
+    area: str
+    incidents: int
+    avg_severity: float
+    open_case_rate: float
+    border_exposure_rate: float
+    risk_score: float
+    tier: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    centroid: tuple[float, float]
+    last_reported_at: Optional[datetime]
 
 class ModelRegistryCreate(BaseModel):
     name: str

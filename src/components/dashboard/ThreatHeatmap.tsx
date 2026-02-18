@@ -71,6 +71,18 @@ type SupabaseCrimeRow = {
   context?: string | null;
 };
 
+type HeatmapSummary = {
+  area: string;
+  incidents: number;
+  avg_severity: number;
+  open_case_rate: number;
+  border_exposure_rate: number;
+  risk_score: number;
+  tier: AreaRisk["tier"];
+  centroid: [number, number];
+  last_reported_at: string | null;
+};
+
 function FitBounds({ points }: { points: Array<[number, number]> }) {
   const map = useMap();
 
@@ -161,6 +173,20 @@ function riskColor(tier: AreaRisk["tier"]) {
   return "#16a34a";
 }
 
+function formatTimestamp(value: string | null) {
+  if (!value) return "Unknown";
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return "Unknown";
+  return new Date(parsed).toLocaleString("en-KE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+}
+
 export function ThreatHeatmap() {
   const [source, setSource] = useState<DataSource>(DEFAULT_SOURCE);
   const [view, setView] = useState<MapView>("points");
@@ -169,9 +195,26 @@ export function ThreatHeatmap() {
   const [records, setRecords] = useState<CrimeRecord[]>([]);
   const [selectedType, setSelectedType] = useState<string>("All");
   const [selectedArea, setSelectedArea] = useState<string>("All");
+  const [heatmapSummary, setHeatmapSummary] = useState<HeatmapSummary[]>([]);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [showRiskOverlay, setShowRiskOverlay] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const fetchSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const data = await apiGet<HeatmapSummary[]>("/heatmap/summary");
+      setHeatmapSummary(data);
+    } catch (err: unknown) {
+      setSummaryError(err instanceof Error ? err.message : "Failed to load heatmap summary");
+      setHeatmapSummary([]);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
 
   const loadFromCsv = useCallback(async () => {
     const res = await fetch(CSV_URL);
@@ -258,7 +301,8 @@ export function ThreatHeatmap() {
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+    void fetchSummary();
+  }, [loadData, fetchSummary]);
 
   const crimeTypes = useMemo(() => {
     const unique = new Set(records.map((r) => r.crimeType).filter(Boolean));
@@ -359,10 +403,33 @@ export function ThreatHeatmap() {
   }, [filtered]);
 
   const topVulnerable = useMemo(() => vulnerableAreas.slice(0, 10), [vulnerableAreas]);
+  const summaryCriticalHighCount = useMemo(
+    () => heatmapSummary.filter((area) => area.tier === "CRITICAL" || area.tier === "HIGH").length,
+    [heatmapSummary]
+  );
+  const summaryAvgRiskScore = useMemo(() => {
+    if (!heatmapSummary.length) return 0;
+    return heatmapSummary.reduce((sum, area) => sum + area.risk_score, 0) / heatmapSummary.length;
+  }, [heatmapSummary]);
+  const summaryLatestReportedAt = useMemo(() => {
+    let latest: string | null = null;
+    let latestTimestamp = 0;
+    for (const area of heatmapSummary) {
+      if (!area.last_reported_at) continue;
+      const ts = Date.parse(area.last_reported_at);
+      if (Number.isNaN(ts)) continue;
+      if (!latest || ts > latestTimestamp) {
+        latest = area.last_reported_at;
+        latestTimestamp = ts;
+      }
+    }
+    return latest;
+  }, [heatmapSummary]);
+  const summaryTopAreas = useMemo(() => heatmapSummary.slice(0, 8), [heatmapSummary]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.all([loadData(), fetchSummary()]);
     setRefreshing(false);
   };
 
