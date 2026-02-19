@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -143,6 +144,8 @@ export function Header({ onMenuClick }: HeaderProps) {
         >
           <Search className="w-4 h-4" />
         </button>
+
+        <ThemeToggle />
 
         <button
           className="relative w-10 h-10 rounded-lg bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"

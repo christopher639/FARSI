@@ -2,26 +2,41 @@ import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-const THEME_STORAGE_KEY = 'farsi_theme_preference';
+export const THEME_STORAGE_KEY = 'farsi_theme_preference';
+const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+const updateDocumentTheme = (theme: string) => {
+  if (!isBrowser) return;
+  document.documentElement.classList.remove('light', 'dark');
+  if (theme === 'system') {
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.add(systemPrefersDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.classList.add(theme);
+  }
+};
+
+const persistThemePreference = (theme: string) => {
+  if (!isBrowser) return;
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  window.dispatchEvent(new CustomEvent('farsi-theme-change', { detail: { theme } }));
+};
+
+const applyThemeValue = (theme: string) => {
+  updateDocumentTheme(theme);
+  persistThemePreference(theme);
+};
 
 export function useTheme() {
   const { user } = useAuth();
 
   const applyTheme = useCallback((theme: string) => {
-    document.documentElement.classList.remove('light', 'dark');
-    if (theme === 'system') {
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.classList.add(systemPrefersDark ? 'dark' : 'light');
-    } else {
-      document.documentElement.classList.add(theme);
-    }
-    // Persist to localStorage for instant load next time
-    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    applyThemeValue(theme);
   }, []);
 
   useEffect(() => {
     // 1. First, apply cached theme immediately to prevent flash
-    const cachedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    const cachedTheme = isBrowser ? localStorage.getItem(THEME_STORAGE_KEY) : null;
     if (cachedTheme) {
       applyTheme(cachedTheme);
     }
@@ -29,7 +44,6 @@ export function useTheme() {
     // 2. Then fetch from DB to sync (only if user is logged in)
     const fetchAndApplyTheme = async () => {
       if (!user) {
-        // If no cached theme and not logged in, default to light
         if (!cachedTheme) {
           applyTheme('light');
         }
@@ -46,13 +60,11 @@ export function useTheme() {
         if (error) throw error;
 
         const dbTheme = data?.theme_preference || 'light';
-        // Only apply if different from cache (to avoid unnecessary repaints)
         if (dbTheme !== cachedTheme) {
           applyTheme(dbTheme);
         }
       } catch (error) {
         console.error('Error fetching theme:', error);
-        // Keep cached or default
         if (!cachedTheme) {
           applyTheme('light');
         }
@@ -62,16 +74,17 @@ export function useTheme() {
     fetchAndApplyTheme();
 
     // Listen for system theme changes when using 'system' mode
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleSystemChange = () => {
-      const currentTheme = localStorage.getItem(THEME_STORAGE_KEY);
-      if (currentTheme === 'system') {
-        applyTheme('system');
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleSystemChange);
-    return () => mediaQuery.removeEventListener('change', handleSystemChange);
+    if (isBrowser) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleSystemChange = () => {
+        const currentTheme = localStorage.getItem(THEME_STORAGE_KEY);
+        if (currentTheme === 'system') {
+          applyTheme('system');
+        }
+      };
+      mediaQuery.addEventListener('change', handleSystemChange);
+      return () => mediaQuery.removeEventListener('change', handleSystemChange);
+    }
   }, [user, applyTheme]);
 
   return { applyTheme };
@@ -79,12 +92,5 @@ export function useTheme() {
 
 // Export a function to update theme (used by SettingsPage)
 export function applyThemeImmediate(theme: string) {
-  document.documentElement.classList.remove('light', 'dark');
-  if (theme === 'system') {
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.classList.add(systemPrefersDark ? 'dark' : 'light');
-  } else {
-    document.documentElement.classList.add(theme);
-  }
-  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  applyThemeValue(theme);
 }
