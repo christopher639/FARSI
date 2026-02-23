@@ -9,6 +9,7 @@ import {
   FileText,
   Radio,
   Database,
+  Brain,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
   { icon: FileText, label: "Intelligence Reports", path: "/intelligence-reports" },
   { icon: Radio, label: "Communications", path: "/communications" },
   { icon: Database, label: "Data Fusion Hub", path: "/data-fusion" },
+  { icon: Brain, label: "Crime Model Explorer", path: "/crime-model" },
   { icon: Users, label: "User Management", path: "/users", adminOnly: true },
   { icon: Settings, label: "System Settings", path: "/system-settings", adminOnly: true },
 ];

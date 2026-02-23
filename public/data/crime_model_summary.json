@@ -1,0 +1,411 @@
+{
+  "dataset": {
+    "original_rows": 16977,
+    "original_columns": 12,
+    "clean_rows": 16345,
+    "clean_columns": 11,
+    "column_names": [
+      "Reported by",
+      "Falls within",
+      "Longitude",
+      "Latitude",
+      "Location",
+      "LSOA code",
+      "LSOA name",
+      "Crime type",
+      "Last outcome category",
+      "year",
+      "month_num"
+    ],
+    "feature_columns": [
+      "Reported by",
+      "Falls within",
+      "Longitude",
+      "Latitude",
+      "Location",
+      "LSOA code",
+      "LSOA name",
+      "Last outcome category",
+      "year",
+      "month_num"
+    ],
+    "numeric_features": [
+      "Longitude",
+      "Latitude",
+      "year",
+      "month_num"
+    ],
+    "categorical_features": [
+      "Reported by",
+      "Falls within",
+      "Location",
+      "LSOA code",
+      "LSOA name",
+      "Last outcome category"
+    ],
+    "feature_count": 10,
+    "missing_columns": [
+      {
+        "column": "Last outcome category",
+        "missing_percent": 8.9
+      },
+      {
+        "column": "Latitude",
+        "missing_percent": 4.5
+      },
+      {
+        "column": "Longitude",
+        "missing_percent": 4.5
+      },
+      {
+        "column": "LSOA name",
+        "missing_percent": 4.5
+      },
+      {
+        "column": "LSOA code",
+        "missing_percent": 4.5
+      },
+      {
+        "column": "Falls within",
+        "missing_percent": 0.0
+      }
+    ],
+    "target_distribution": [
+      {
+        "label": "Violence and sexual offences",
+        "count": 6671,
+        "percent": 40.8
+      },
+      {
+        "label": "Public order",
+        "count": 1712,
+        "percent": 10.5
+      },
+      {
+        "label": "Shoplifting",
+        "count": 1576,
+        "percent": 9.6
+      },
+      {
+        "label": "Anti-social behaviour",
+        "count": 1455,
+        "percent": 8.9
+      },
+      {
+        "label": "Criminal damage and arson",
+        "count": 1230,
+        "percent": 7.5
+      },
+      {
+        "label": "Other theft",
+        "count": 1106,
+        "percent": 6.8
+      },
+      {
+        "label": "Burglary",
+        "count": 722,
+        "percent": 4.4
+      },
+      {
+        "label": "Vehicle crime",
+        "count": 699,
+        "percent": 4.3
+      },
+      {
+        "label": "Drugs",
+        "count": 300,
+        "percent": 1.8
+      },
+      {
+        "label": "Other crime",
+        "count": 290,
+        "percent": 1.8
+      },
+      {
+        "label": "Robbery",
+        "count": 272,
+        "percent": 1.7
+      },
+      {
+        "label": "Bicycle theft",
+        "count": 137,
+        "percent": 0.8
+      },
+      {
+        "label": "Possession of weapons",
+        "count": 108,
+        "percent": 0.7
+      },
+      {
+        "label": "Theft from the person",
+        "count": 67,
+        "percent": 0.4
+      }
+    ]
+  },
+  "models": [
+    {
+      "name": "Random Forest",
+      "f1_macro": 0.1064331115921727,
+      "accuracy": 0.4409606130241316
+    },
+    {
+      "name": "Linear SVC",
+      "f1_macro": 0.10472829658885811,
+      "accuracy": 0.44226042415843675
+    },
+    {
+      "name": "Logistic Regression",
+      "f1_macro": 0.09723259192670172,
+      "accuracy": 0.4486081241484964
+    }
+  ],
+  "best_model": {
+    "name": "Random Forest",
+    "feature_count": 6751,
+    "k_best": 300,
+    "classification_report": {
+      "Anti-social behaviour": {
+        "precision": 0.125,
+        "recall": 0.01,
+        "f1_score": 0.019,
+        "support": 291
+      },
+      "Bicycle theft": {
+        "precision": 0.2,
+        "recall": 0.037,
+        "f1_score": 0.062,
+        "support": 27
+      },
+      "Burglary": {
+        "precision": 0.389,
+        "recall": 0.049,
+        "f1_score": 0.086,
+        "support": 144
+      },
+      "Criminal damage and arson": {
+        "precision": 0.308,
+        "recall": 0.016,
+        "f1_score": 0.031,
+        "support": 246
+      },
+      "Drugs": {
+        "precision": 0.429,
+        "recall": 0.05,
+        "f1_score": 0.09,
+        "support": 60
+      },
+      "Other crime": {
+        "precision": 0.333,
+        "recall": 0.034,
+        "f1_score": 0.062,
+        "support": 58
+      },
+      "Other theft": {
+        "precision": 0.184,
+        "recall": 0.041,
+        "f1_score": 0.067,
+        "support": 221
+      },
+      "Possession of weapons": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "support": 22
+      },
+      "Public order": {
+        "precision": 0.217,
+        "recall": 0.015,
+        "f1_score": 0.027,
+        "support": 343
+      },
+      "Robbery": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "support": 54
+      },
+      "Shoplifting": {
+        "precision": 0.572,
+        "recall": 0.527,
+        "f1_score": 0.549,
+        "support": 315
+      },
+      "Theft from the person": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "support": 14
+      },
+      "Vehicle crime": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0,
+        "support": 140
+      },
+      "Violence and sexual offences": {
+        "precision": 0.449,
+        "recall": 0.945,
+        "f1_score": 0.609,
+        "support": 1334
+      },
+      "accuracy": {
+        "value": 0.447
+      },
+      "macro avg": {
+        "precision": 0.229,
+        "recall": 0.123,
+        "f1_score": 0.114,
+        "support": 3269
+      },
+      "weighted avg": {
+        "precision": 0.34,
+        "recall": 0.447,
+        "f1_score": 0.32,
+        "support": 3269
+      }
+    }
+  },
+  "sample_predictions": [
+    {
+      "dataset_index": 14368,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Barrs Court Road",
+        "LSOA name": "South Gloucestershire 029B",
+        "Longitude": -2.487639,
+        "Latitude": 51.449605,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Violence and sexual offences",
+      "predicted_crime_type": "Violence and sexual offences"
+    },
+    {
+      "dataset_index": 1947,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Supermarket",
+        "LSOA name": "Bristol 004A",
+        "Longitude": -2.592098,
+        "Latitude": 51.500601,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Violence and sexual offences",
+      "predicted_crime_type": "Shoplifting"
+    },
+    {
+      "dataset_index": 7617,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Culver Street",
+        "LSOA name": "Bristol 061C",
+        "Longitude": -2.601093,
+        "Latitude": 51.453952,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Other theft",
+      "predicted_crime_type": "Other theft"
+    },
+    {
+      "dataset_index": 12770,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Primrose Drive",
+        "LSOA name": "South Gloucestershire 001A",
+        "Longitude": -2.511463,
+        "Latitude": 51.613563,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Public order",
+      "predicted_crime_type": "Violence and sexual offences"
+    },
+    {
+      "dataset_index": 348,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Amery Lane",
+        "LSOA name": "Bath and North East Somerset 007A",
+        "Longitude": -2.360595,
+        "Latitude": 51.379472,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Robbery",
+      "predicted_crime_type": "Violence and sexual offences"
+    },
+    {
+      "dataset_index": 15856,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Matt'S Lane",
+        "LSOA name": "South Somerset 017C",
+        "Longitude": -2.752619,
+        "Latitude": 50.951363,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Violence and sexual offences",
+      "predicted_crime_type": "Violence and sexual offences"
+    },
+    {
+      "dataset_index": 11253,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near St Mary'S Close",
+        "LSOA name": "Sedgemoor 012F",
+        "Longitude": -2.921298,
+        "Latitude": 51.158813,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Violence and sexual offences",
+      "predicted_crime_type": "Violence and sexual offences"
+    },
+    {
+      "dataset_index": 3263,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Belvoir Road",
+        "LSOA name": "Bristol 020A",
+        "Longitude": -2.590578,
+        "Latitude": 51.469947,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Vehicle crime",
+      "predicted_crime_type": "Violence and sexual offences"
+    },
+    {
+      "dataset_index": 5662,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Four Acres Close",
+        "LSOA name": "Bristol 050B",
+        "Longitude": -2.623552,
+        "Latitude": 51.407015,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Violence and sexual offences",
+      "predicted_crime_type": "Violence and sexual offences"
+    },
+    {
+      "dataset_index": 3992,
+      "features": {
+        "Falls within": "Avon and Somerset Constabulary",
+        "Location": "On or near Derwent Road",
+        "LSOA name": "Bristol 028C",
+        "Longitude": -2.53513,
+        "Latitude": 51.465754,
+        "year": 2025,
+        "month_num": 11
+      },
+      "actual_crime_type": "Violence and sexual offences",
+      "predicted_crime_type": "Violence and sexual offences"
+    }
+  ]
+}
