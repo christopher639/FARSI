@@ -253,7 +253,7 @@ export function ThreatHeatmap() {
 
     if (error) throw error;
 
-    const cleaned: CrimeRecord[] = ((data || []) as SupabaseCrimeRow[])
+    const cleaned: CrimeRecord[] = ((data || []) as unknown as SupabaseCrimeRow[])
       .map((row) => ({
         latitude: Number(row.latitude),
         longitude: Number(row.longitude),

@@ -27,13 +27,13 @@ export function useSystemSettings() {
 
       if (error) throw error;
 
-      const settingsMap: Record<string, SettingValue> = {};
+      const settingsMap: Record<string, unknown> = {};
       data?.forEach((row) => {
         settingsMap[row.setting_key] = row.setting_value;
       });
 
       setSettings({
-        security_2fa_enforcement: settingsMap.security_2fa_enforcement || { mandatory: false, method: 'totp' }
+        security_2fa_enforcement: (settingsMap.security_2fa_enforcement as SecuritySettings) || { mandatory: false, method: 'totp' }
       });
     } catch (err: unknown) {
       console.error("Error fetching system settings:", err);
@@ -50,7 +50,7 @@ export function useSystemSettings() {
       const { error } = await supabase
         .from("system_settings")
         .update({ 
-          setting_value: value,
+          setting_value: value as unknown as import("@/integrations/supabase/types").Json,
           updated_by: user?.id 
         })
         .eq("setting_key", key);
