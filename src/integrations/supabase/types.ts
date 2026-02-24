@@ -943,7 +943,7 @@ export type Database = {
       agency_status: "active" | "inactive" | "pending"
       alert_severity: "critical" | "high" | "medium" | "low" | "info"
       alert_status: "new" | "investigating" | "resolved" | "dismissed"
-      app_role: "admin" | "analyst" | "viewer"
+      app_role: "admin" | "analyst" | "viewer" | "security_agent"
       clearance_level: "top_secret" | "secret" | "confidential" | "unclassified"
       user_status: "active" | "inactive" | "suspended"
     }
@@ -1076,7 +1076,7 @@ export const Constants = {
       agency_status: ["active", "inactive", "pending"],
       alert_severity: ["critical", "high", "medium", "low", "info"],
       alert_status: ["new", "investigating", "resolved", "dismissed"],
-      app_role: ["admin", "analyst", "viewer"],
+      app_role: ["admin", "analyst", "viewer", "security_agent"],
       clearance_level: ["top_secret", "secret", "confidential", "unclassified"],
       user_status: ["active", "inactive", "suspended"],
     },

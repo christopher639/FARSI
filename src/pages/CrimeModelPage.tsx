@@ -85,9 +85,9 @@ const CrimeModelPage = () => {
   }, []);
 
   const classReportRows = useMemo(() => {
-    if (!summary) return [];
-    return Object.entries(summary.best_model.classification_report)
-      .filter(([label, entry]) => isClassificationMetric(entry))
+    if (!summary) return [] as [string, ClassificationMetric][];
+    return (Object.entries(summary.best_model.classification_report)
+      .filter(([, entry]) => isClassificationMetric(entry)) as [string, ClassificationMetric][])
       .sort(([, a], [, b]) => b.support - a.support)
       .slice(0, 6);
   }, [summary]);
@@ -137,25 +137,25 @@ const CrimeModelPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <MetricCard
             title="Original Rows"
-            value={summary.dataset.original_rows.toLocaleString()}
+            value={summary!.dataset.original_rows.toLocaleString()}
             subtitle="Raw Avon Surrey police log"
             icon={Database}
           />
           <MetricCard
             title="Clean Rows"
-            value={summary.dataset.clean_rows.toLocaleString()}
+            value={summary!.dataset.clean_rows.toLocaleString()}
             subtitle="After de-duplication & target filtering"
             icon={Activity}
           />
           <MetricCard
             title="Feature Columns"
-            value={`${summary.dataset.feature_count}`}
-            subtitle={`${summary.dataset.numeric_features.length} numeric / ${summary.dataset.categorical_features.length} categorical`}
+            value={`${summary!.dataset.feature_count}`}
+            subtitle={`${summary!.dataset.numeric_features.length} numeric / ${summary!.dataset.categorical_features.length} categorical`}
             icon={Layers}
           />
           <MetricCard
             title="Total Columns"
-            value={`${summary.dataset.clean_columns}`}
+            value={`${summary!.dataset.clean_columns}`}
             subtitle="Includes the target label"
             icon={Columns}
           />
@@ -166,11 +166,11 @@ const CrimeModelPage = () => {
         <div className="panel p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Crime Type Distribution</h2>
-            <span className="text-xs text-muted-foreground">Top {summary.dataset.target_distribution.length} labels</span>
+            <span className="text-xs text-muted-foreground">Top {summary!.dataset.target_distribution.length} labels</span>
           </div>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <ReBarChart data={summary.dataset.target_distribution} margin={{ top: 10, right: 14, left: -8, bottom: 0 }}>
+              <ReBarChart data={summary!.dataset.target_distribution} margin={{ top: 10, right: 14, left: -8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="crimeGradient" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#10b981" />
@@ -192,7 +192,7 @@ const CrimeModelPage = () => {
             <h2 className="text-lg font-semibold">Missing Columns</h2>
           </div>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            {summary.dataset.missing_columns.map((column) => (
+            {summary!.dataset.missing_columns.map((column) => (
               <li key={column.column} className="flex justify-between">
                 <span>{column.column}</span>
                 <span className="font-semibold">{column.missing_percent}% missing</span>
@@ -208,23 +208,23 @@ const CrimeModelPage = () => {
           <span className="text-xs text-muted-foreground">Cross-validation averages (Stratified 5-fold)</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {summary.models.map((model) => (
+          {summary!.models.map((model) => (
             <MetricCard
               key={model.name}
               title={model.name}
               value={formatPercent(model.f1_macro)}
               subtitle={`Accuracy ${formatPercent(model.accuracy)}`}
               icon={Brain}
-              variant={model.name === summary.best_model.name ? "success" : "default"}
+              variant={model.name === summary!.best_model.name ? "success" : "default"}
             />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">Best Model: {summary.best_model.name}</h3>
+              <h3 className="text-base font-semibold">Best Model: {summary!.best_model.name}</h3>
               <span className="text-xs text-muted-foreground">
-                {summary.best_model.feature_count} engineered features · SelectKBest k={summary.best_model.k_best}
+                {summary!.best_model.feature_count} engineered features â†’ SelectKBest k={summary!.best_model.k_best}
               </span>
             </div>
             <div className="overflow-hidden rounded-lg border border-panel-border">
@@ -275,14 +275,14 @@ const CrimeModelPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {summary.sample_predictions.map((entry, index) => (
+                  {summary!.sample_predictions.map((entry, index) => (
                     <tr key={entry.dataset_index} className="border-t border-panel-border/70 text-[13px]">
                       <td className="px-2 py-2 font-medium">{index + 1}</td>
                       <td className="px-2 py-2">
                         {entry.features.Location ?? entry.features['LSOA name'] ?? "Unknown"}
                         <div className="text-[11px] text-muted-foreground">
                           {entry.features['Longitude'] ?? ""}
-                          {entry.features['Latitude'] ? ` · ${entry.features['Latitude']}` : ""}
+                          {entry.features['Latitude'] ? ` Â· ${entry.features['Latitude']}` : ""}
                         </div>
                       </td>
                       <td className="px-2 py-2 font-semibold text-foreground">{entry.actual_crime_type}</td>
