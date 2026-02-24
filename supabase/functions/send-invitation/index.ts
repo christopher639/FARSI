@@ -64,15 +64,27 @@ serve(async (req) => {
       );
     }
 
-    // Check if user already exists
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
-    
-    if (existingUser) {
-      return new Response(
-        JSON.stringify({ error: "A user with this email already exists" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Check if user already exists AND has an active profile
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, user_id")
+      .eq("email", email.toLowerCase())
+      .single();
+
+    if (existingProfile) {
+      // Check if user already has a role assigned (fully onboarded)
+      const { data: existingRole } = await supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", existingProfile.user_id)
+        .single();
+
+      if (existingRole) {
+        return new Response(
+          JSON.stringify({ error: "A user with this email already exists and is active" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Check for pending invitation
