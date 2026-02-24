@@ -83,6 +83,30 @@ type HeatmapSummary = {
   last_reported_at: string | null;
 };
 
+type PredictedHotspot = {
+  label: string;
+  latitude: number;
+  longitude: number;
+  risk_score: number;
+  tier: AreaRisk["tier"];
+  attack_probability: number;
+  recent_incidents: number;
+  prior_incidents: number;
+  trend_ratio: number;
+  severity_score: number;
+  unresolved_rate: number;
+  repeat_exposure: number;
+  prediction_window_start: string;
+  prediction_window_end: string;
+};
+
+type PredictedHotspotResponse = {
+  hotspots: PredictedHotspot[];
+  model: string;
+  horizon_days: number;
+  generated_at?: string;
+};
+
 function FitBounds({ points }: { points: Array<[number, number]> }) {
   const map = useMap();
 
@@ -201,6 +225,8 @@ export function ThreatHeatmap() {
   const [refreshing, setRefreshing] = useState(false);
   const [showRiskOverlay, setShowRiskOverlay] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [predictedHotspots, setPredictedHotspots] = useState<PredictedHotspot[]>([]);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
 
   const fetchSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -213,6 +239,17 @@ export function ThreatHeatmap() {
       setHeatmapSummary([]);
     } finally {
       setSummaryLoading(false);
+    }
+  }, []);
+
+  const fetchPredictedHotspots = useCallback(async () => {
+    setPredictionError(null);
+    try {
+      const data = await apiGet<PredictedHotspotResponse>("/analytics/predicted-hotspots");
+      setPredictedHotspots(data.hotspots || []);
+    } catch (err: unknown) {
+      setPredictionError(err instanceof Error ? err.message : "Failed to load predicted hotspots");
+      setPredictedHotspots([]);
     }
   }, []);
 
@@ -302,7 +339,8 @@ export function ThreatHeatmap() {
   useEffect(() => {
     void loadData();
     void fetchSummary();
-  }, [loadData, fetchSummary]);
+    void fetchPredictedHotspots();
+  }, [fetchPredictedHotspots, loadData, fetchSummary]);
 
   const crimeTypes = useMemo(() => {
     const unique = new Set(records.map((r) => r.crimeType).filter(Boolean));
@@ -426,10 +464,25 @@ export function ThreatHeatmap() {
     return latest;
   }, [heatmapSummary]);
   const summaryTopAreas = useMemo(() => heatmapSummary.slice(0, 8), [heatmapSummary]);
+  const predictedAreas = useMemo<AreaRisk[]>(() => {
+    return predictedHotspots.map((spot) => ({
+      areaName: spot.label,
+      incidents: spot.recent_incidents,
+      ratePer100: spot.attack_probability * 100,
+      avgSeverity: spot.severity_score * 5,
+      openCaseRate: spot.unresolved_rate,
+      borderExposure: spot.repeat_exposure,
+      riskScore: spot.risk_score,
+      tier: spot.tier,
+      centroid: [spot.latitude, spot.longitude],
+    }));
+  }, [predictedHotspots]);
+  const usingPredictions = predictedAreas.length > 0;
+  const displayedVulnerable = useMemo(() => (usingPredictions ? predictedAreas : topVulnerable), [predictedAreas, topVulnerable, usingPredictions]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadData(), fetchSummary()]);
+    await Promise.all([loadData(), fetchSummary(), fetchPredictedHotspots()]);
     setRefreshing(false);
   };
 
@@ -585,7 +638,7 @@ export function ThreatHeatmap() {
               )}
 
               {showRiskOverlay &&
-                topVulnerable.map((area) => (
+                displayedVulnerable.map((area) => (
                   <CircleMarker
                     key={`risk-${area.areaName}`}
                     center={area.centroid}
@@ -615,17 +668,17 @@ export function ThreatHeatmap() {
         {!loading && !error && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="rounded-lg border border-panel-border bg-secondary/20 p-3">
-              <div className="text-xs text-muted-foreground">Most Vulnerable Area</div>
-              <div className="text-sm font-semibold mt-1">{topVulnerable[0]?.areaName || "N/A"}</div>
+              <div className="text-xs text-muted-foreground">{usingPredictions ? "Most Predicted Vulnerable Area" : "Most Vulnerable Area"}</div>
+              <div className="text-sm font-semibold mt-1">{displayedVulnerable[0]?.areaName || "N/A"}</div>
               <div className="text-xs mt-1 text-muted-foreground">
-                Risk Score: {topVulnerable[0] ? topVulnerable[0].riskScore.toFixed(1) : "0.0"}
+                Risk Score: {displayedVulnerable[0] ? displayedVulnerable[0].riskScore.toFixed(1) : "0.0"}
               </div>
             </div>
 
             <div className="rounded-lg border border-panel-border bg-secondary/20 p-3">
               <div className="text-xs text-muted-foreground">Critical/High Areas</div>
               <div className="text-sm font-semibold mt-1">
-                {vulnerableAreas.filter((a) => a.tier === "CRITICAL" || a.tier === "HIGH").length}
+                {displayedVulnerable.filter((a) => a.tier === "CRITICAL" || a.tier === "HIGH").length}
               </div>
               <div className="text-xs mt-1 text-muted-foreground">Priority deployment zones</div>
             </div>
@@ -644,8 +697,10 @@ export function ThreatHeatmap() {
           <div className="rounded-lg border border-panel-border overflow-hidden">
             <div className="px-3 py-2 border-b border-panel-border bg-secondary/20 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-warning" />
-              <h3 className="text-sm font-semibold">Top Vulnerable Areas</h3>
-              <span className="text-xs text-muted-foreground">(ranked by composite risk score)</span>
+              <h3 className="text-sm font-semibold">{usingPredictions ? "Predicted Vulnerable Areas" : "Top Vulnerable Areas"}</h3>
+              <span className="text-xs text-muted-foreground">
+                {usingPredictions ? "(ranked by predicted attack vulnerability)" : "(ranked by composite risk score)"}
+              </span>
             </div>
             <div className="overflow-auto">
               <table className="w-full text-xs">
@@ -661,7 +716,7 @@ export function ThreatHeatmap() {
                   </tr>
                 </thead>
                 <tbody>
-                  {topVulnerable.map((area) => (
+                  {displayedVulnerable.map((area) => (
                     <tr key={area.areaName} className="border-t border-panel-border">
                       <td className="px-3 py-2 font-medium">{area.areaName}</td>
                       <td className="px-3 py-2 text-right">{area.incidents}</td>
@@ -672,7 +727,7 @@ export function ThreatHeatmap() {
                       <td className={`px-3 py-2 text-right font-semibold ${tierClass(area.tier)}`}>{area.tier}</td>
                     </tr>
                   ))}
-                  {!topVulnerable.length && (
+                  {!displayedVulnerable.length && (
                     <tr>
                       <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                         No vulnerable area data available.
@@ -682,6 +737,12 @@ export function ThreatHeatmap() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {predictionError && (
+          <div className="text-xs text-warning rounded border border-warning/30 bg-warning/10 px-3 py-2">
+            Prediction model data unavailable: {predictionError}
           </div>
         )}
       </div>

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .routes import (
     agencies,
+    analytics,
     alerts,
     audit,
     auth,
