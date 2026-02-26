@@ -45,7 +45,7 @@ def _run_event_inference(event_id: str) -> None:
         text = f"{event.get('title')}\n{event.get('description')}".strip()
         if text:
             result = run_nlp(text)
-            model = _get_or_create_model("ner-sentiment", "v1", "nlp", "transformers")
+            model = _get_or_create_model("multilingual-ner-link-sentiment", "v2", "nlp", "transformers")
             supabase.table("ml_inference_results").insert(
                 {"event_id": event_id, "model_id": model["id"], "result": result, "created_at": now}
             ).execute()

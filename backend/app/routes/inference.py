@@ -39,7 +39,7 @@ def nlp_inference(
 ):
     supabase = get_supabase()
     result = run_nlp(text)
-    model = _get_or_create_model("ner-sentiment", "v1", "nlp", "transformers")
+    model = _get_or_create_model("multilingual-ner-link-sentiment", "v2", "nlp", "transformers")
     created = supabase.table("ml_inference_results").insert(
         {
             "event_id": event_id,
