@@ -41,3 +41,27 @@ Implemented in `backend/app/ml/nlp.py`:
 - Model name: `multilingual-ner-link-sentiment`
 - Version: `v2`
 
+## Quantitative Evaluation
+- Script: `scripts/evaluate_nlp_pipeline.py`
+- Sample benchmark: `data/nlp/sample_benchmark.jsonl` (English + Swahili, police-report + OSINT style)
+
+Run:
+```bash
+python scripts/evaluate_nlp_pipeline.py
+```
+
+Quick smoke run:
+```bash
+python scripts/evaluate_nlp_pipeline.py --max-samples 3
+```
+
+Offline/CI smoke mode (no model downloads):
+```bash
+python scripts/evaluate_nlp_pipeline.py --mode fast --max-samples 3
+```
+
+Metrics reported:
+- Entity Precision / Recall / F1 (micro)
+- Sentiment Accuracy
+- Priority Accuracy
+- Per-language breakdown (`en`, `sw`) and overall
