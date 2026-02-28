@@ -11,10 +11,12 @@ from .routes import (
     alerts,
     audit,
     auth,
+    compliance,
     communications,
     crime_reports,
     events,
     export_data,
+    federated,
     graph,
     heatmap,
     hooks,
@@ -45,8 +47,10 @@ def create_app() -> FastAPI:
     app.include_router(agencies.router)
     app.include_router(events.router)
     app.include_router(export_data.router)
+    app.include_router(federated.router)
     app.include_router(ingest.router)
     app.include_router(audit.router)
+    app.include_router(compliance.router)
     app.include_router(rbac.router)
     app.include_router(alerts.router)
     app.include_router(reports.router)

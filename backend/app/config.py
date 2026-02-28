@@ -28,6 +28,11 @@ class Settings:
         self.neo4j_password = _get_env("NEO4J_PASSWORD")
         self.neo4j_database = _get_env("NEO4J_DATABASE", "neo4j")
         self.neo4j_encrypted = os.getenv("NEO4J_ENCRYPTED", "false").lower() == "true"
+        self.enable_data_anonymization = os.getenv("ENABLE_DATA_ANONYMIZATION", "true").lower() == "true"
+        self.anonymize_read_responses = os.getenv("ANONYMIZE_READ_RESPONSES", "true").lower() == "true"
+        self.pii_hash_salt = _get_env("PII_HASH_SALT", "farsi-salt")
+        self.federated_enabled = os.getenv("FEDERATED_ENABLED", "true").lower() == "true"
+        self.federated_min_clients = int(os.getenv("FEDERATED_MIN_CLIENTS", "2"))
 
     def validate(self) -> None:
         missing = []

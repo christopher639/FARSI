@@ -4,10 +4,12 @@ import io
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
+from ..audit_utils import log_audit_event
 from ..config import settings
 from ..deps import require_ingestor
+from ..privacy import anonymize_coordinates, anonymize_text
 from ..supabase_client import get_supabase
 
 
@@ -100,6 +102,7 @@ def _normalize_month(raw: str) -> str | None:
 
 @router.post("/text")
 def ingest_text(
+    request: Request,
     event_type: str = Form(...),
     title: str = Form(...),
     description: str | None = Form(None),
@@ -111,17 +114,22 @@ def ingest_text(
 ):
     supabase = get_supabase()
     now = datetime.now(timezone.utc).isoformat()
+    safe_title = anonymize_text(title) if settings.enable_data_anonymization else title
+    safe_description = anonymize_text(description) if settings.enable_data_anonymization else description
+    transformations = []
+    if settings.enable_data_anonymization:
+        transformations.append("pii_redacted_text")
     doc: dict[str, Any] = {
         "event_type": event_type,
-        "title": title,
-        "description": description,
+        "title": safe_title,
+        "description": safe_description,
         "modality": modality,
         "provenance": {
             "source_system": source_system,
             "source_agency": source_agency,
             "ingested_at": now,
             "original_timestamp": original_timestamp,
-            "transformations": [],
+            "transformations": transformations,
             "model_version": None,
             "confidence": None,
             "chain_of_custody_id": None,
@@ -130,21 +138,20 @@ def ingest_text(
         "created_at": now,
     }
     created = supabase.table("ingestion_events").insert(doc).execute().data[0]
-    supabase.table("audit_logs").insert(
-        {
-            "actor": "ingest",
-            "role": "ingestor",
-            "action": "ingest.text",
-            "target": created["id"],
-            "metadata": {"source_system": source_system},
-            "created_at": now,
-        }
-    ).execute()
+    log_audit_event(
+        action="ingest.text",
+        target=created["id"],
+        role="ingestor",
+        actor="ingest",
+        metadata={"source_system": source_system, "anonymized": settings.enable_data_anonymization},
+        request=request,
+    )
     return {"status": "ingested", "event_id": created["id"]}
 
 
 @router.post("/media")
 def ingest_media(
+    request: Request,
     event_type: str = Form(...),
     title: str = Form(...),
     source_system: str = Form(...),
@@ -155,7 +162,10 @@ def ingest_media(
 ):
     supabase = get_supabase()
     now = datetime.now(timezone.utc).isoformat()
-    filename = f"{int(datetime.now(timezone.utc).timestamp())}_{media.filename}"
+    original_filename = media.filename or "media.bin"
+    safe_filename = original_filename.replace(" ", "_")
+    safe_filename = "".join(ch for ch in safe_filename if ch.isalnum() or ch in {"_", "-", "."})
+    filename = f"{int(datetime.now(timezone.utc).timestamp())}_{safe_filename}"
     file_bytes = media.file.read()
     supabase.storage.from_(settings.media_bucket).upload(
         filename,
@@ -184,21 +194,20 @@ def ingest_media(
         "created_at": now,
     }
     created = supabase.table("ingestion_events").insert(doc).execute().data[0]
-    supabase.table("audit_logs").insert(
-        {
-            "actor": "ingest",
-            "role": "ingestor",
-            "action": "ingest.media",
-            "target": created["id"],
-            "metadata": {"source_system": source_system, "media_path": storage_path},
-            "created_at": now,
-        }
-    ).execute()
+    log_audit_event(
+        action="ingest.media",
+        target=created["id"],
+        role="ingestor",
+        actor="ingest",
+        metadata={"source_system": source_system, "media_path": storage_path},
+        request=request,
+    )
     return {"status": "ingested", "event_id": created["id"], "media_path": storage_path}
 
 
 @router.post("/crime-csv")
 def ingest_crime_csv(
+    request: Request,
     csv_file: UploadFile = File(...),
     source_system: str = Form("data_fusion_upload"),
     source_agency: str | None = Form(None),
@@ -245,6 +254,11 @@ def ingest_crime_csv(
             invalid_rows += 1
             continue
 
+        context = _field_value(row, header_lookup, "context").strip() or None
+        if settings.enable_data_anonymization:
+            lat, lon = anonymize_coordinates(lat, lon, precision=3)
+            context = anonymize_text(context)
+
         rec = {
             "crime_id": _field_value(row, header_lookup, "crime_id").strip() or None,
             "month": month,
@@ -257,7 +271,7 @@ def ingest_crime_csv(
             "lsoa_name": _field_value(row, header_lookup, "lsoa_name").strip() or None,
             "crime_type": crime_type,
             "last_outcome_category": _field_value(row, header_lookup, "last_outcome_category").strip() or None,
-            "context": _field_value(row, header_lookup, "context").strip() or None,
+            "context": context,
             "geo": {"type": "Point", "coordinates": [lon, lat]},
         }
         rec["record_hash"] = _crime_record_hash(rec)
@@ -289,7 +303,8 @@ def ingest_crime_csv(
             "source_agency": source_agency,
             "ingested_at": now,
             "original_timestamp": None,
-            "transformations": ["csv_validation", "record_hash_upsert"],
+            "transformations": ["csv_validation", "record_hash_upsert"]
+            + (["pii_redacted_text", "coordinates_coarsened"] if settings.enable_data_anonymization else []),
             "model_version": None,
             "confidence": None,
             "chain_of_custody_id": None,
@@ -298,21 +313,19 @@ def ingest_crime_csv(
         "created_at": now,
     }
     created = supabase.table("ingestion_events").insert(event_doc).execute().data[0]
-    supabase.table("audit_logs").insert(
-        {
-            "actor": "ingest",
-            "role": "ingestor",
-            "action": "ingest.crime_csv",
-            "target": created["id"],
-            "metadata": {
-                "source_system": source_system,
-                "filename": csv_file.filename,
-                "inserted": inserted,
-                "invalid_rows": invalid_rows,
-            },
-            "created_at": now,
-        }
-    ).execute()
+    log_audit_event(
+        action="ingest.crime_csv",
+        target=created["id"],
+        role="ingestor",
+        actor="ingest",
+        metadata={
+            "source_system": source_system,
+            "filename": csv_file.filename,
+            "inserted": inserted,
+            "invalid_rows": invalid_rows,
+        },
+        request=request,
+    )
 
     return {
         "status": "ingested",
