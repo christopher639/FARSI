@@ -1,5 +1,59 @@
 # Crime Analytics Pipeline
 
+## fastai Crime Classifier (Drivetrain Approach)
+
+The project now includes a fastai-based tabular deep learning model alongside the existing sklearn pipeline.
+
+### Drivetrain Approach
+
+| Step | Description |
+|------|-------------|
+| **Defined Objective** | Predict `crime_type` for incoming incidents to optimize patrol deployment, resource allocation, and risk scoring |
+| **Levers** | Patrol density, community awareness campaigns, inter-agency coordination — all driven by predictions |
+| **Data** | Geolocation, temporal features, admin regions, outcomes, context narratives |
+| **Model** | fastai `TabularLearner` with entity embeddings, mapping engineered features → crime_type |
+
+### Training
+
+```bash
+# Train from local CSV (default: enhanced dataset)
+python -m pipeline.fastai_crime_model --csv data/crime/kenya-enhanced-crime-data.csv
+
+# Train from Supabase
+python -m pipeline.fastai_crime_model --source supabase --limit 5000
+
+# Generate enhanced training data (20K records with learnable spatial patterns)
+python -m pipeline.simulate_enhanced_data --rows 20000
+```
+
+### API Endpoint
+
+```bash
+# Predict crime type for a location
+curl -X POST http://localhost:8000/inference/predict-crime \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"latitude": -1.2864, "longitude": 36.8172, "month": "2025-11", "falls_within": "Nairobi Metropolitan Regional Command"}'
+```
+
+### Engineered Features
+
+| Feature | Type | Description |
+|---------|------|-------------|
+| `latitude`, `longitude` | Continuous | Raw coordinates |
+| `dist_nairobi_km` | Continuous | Distance from Nairobi CBD (national gravity center) |
+| `month_sin`, `month_cos` | Continuous | Cyclical month encoding |
+| `is_border` | Continuous | Binary flag for border-zone incidents |
+| `region` | Categorical | Regional command (entity-embedded) |
+| `county` | Categorical | County extracted from location string |
+| `road_type` | Categorical | Street/Avenue/Market/Junction/etc. |
+| `geo_cell` | Categorical | 0.5-degree lat/lon grid tile |
+| `border_neighbor` | Categorical | Neighboring country for border events |
+
+---
+
+## Original Pipeline
+
 1. **Source the training payload**
    - Call `GET /analytics/crime-patterns`. The response includes `month`, `hour`, `day_of_week`, `latitude`, `longitude`, `location`, `context`, and `crime_type`.
    - Use `features` array to align the payload with your model inputs and treat `crime_type` as the target label.

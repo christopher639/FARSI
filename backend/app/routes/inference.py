@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
+from pydantic import BaseModel
 
 from ..deps import require_permission
 from ..ml.cv import run_object_detection
@@ -10,6 +11,53 @@ from ..supabase_client import get_supabase
 
 
 router = APIRouter(prefix="/inference", tags=["inference"])
+
+
+# ── fastai crime-type prediction ──
+
+class CrimePredictRequest(BaseModel):
+    latitude: float
+    longitude: float
+    month: str = "2025-11"
+    falls_within: str = "Nairobi Metropolitan Regional Command"
+    location: str = "Unknown"
+    context: str = ""
+    last_outcome_category: str | None = None
+
+
+@router.post("/predict-crime")
+def predict_crime_type(
+    body: CrimePredictRequest,
+    _: str = Depends(require_permission("inference.write")),
+):
+    """Predict the most likely crime type for an incident using the fastai model."""
+    from ..ml.fastai_predict import predict_crime
+
+    result = predict_crime(
+        latitude=body.latitude,
+        longitude=body.longitude,
+        month=body.month,
+        falls_within=body.falls_within,
+        location=body.location,
+        context=body.context,
+        last_outcome_category=body.last_outcome_category,
+    )
+
+    # Optionally store in inference results (non-blocking: skip if Supabase is unavailable)
+    try:
+        supabase = get_supabase()
+        model = _get_or_create_model("fastai-crime-classifier", "v1", "tabular", "fastai")
+        supabase.table("ml_inference_results").insert(
+            {
+                "model_id": model["id"],
+                "result": result,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+    except Exception:
+        pass  # Supabase storage is optional; prediction still returned
+
+    return result
 
 
 def _get_or_create_model(name: str, version: str, model_type: str, framework: str):
