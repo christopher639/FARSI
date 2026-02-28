@@ -55,6 +55,8 @@ const App = () => (
                 <Route path="/communications" element={<CommunicationsPage />} />
                 <Route path="/data-fusion" element={<DataFusionPage />} />
                 <Route path="/crime-model" element={<CrimeModelPage />} />
+                <Route path="/ml-intelligence" element={<MLIntelligencePage />} />
+                <Route path="/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/system-settings" element={<SystemSettingsPage />} />
