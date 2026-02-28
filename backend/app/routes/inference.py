@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from ..deps import require_permission
-from ..ml.cv import run_object_detection
+from ..ml.cv import analyze_image, analyze_video
 from ..ml.heatmap import generate_heatmap_cells
 from ..ml.nlp import run_nlp
 from ..supabase_client import get_supabase
@@ -31,6 +31,32 @@ def _get_or_create_model(name: str, version: str, model_type: str, framework: st
     return existing[0]
 
 
+def _store_flagged_visual_events(
+    *,
+    flagged_events: list[dict],
+    stream_id: str | None,
+) -> None:
+    if not flagged_events:
+        return
+    supabase = get_supabase()
+    rows = []
+    for event in flagged_events:
+        details = event.get("details", {})
+        rows.append(
+            {
+                "event_type": event.get("event_type", "suspicious_activity"),
+                "subject": event.get("subject"),
+                "location": stream_id,
+                "event_description": (
+                    f"CV flag: {details.get('type', 'unknown')} "
+                    f"(severity={details.get('severity', 'n/a')}, score={details.get('score', 'n/a')})"
+                )[:1990],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    supabase.table("surveillance_logs").insert(rows).execute()
+
+
 @router.post("/nlp")
 def nlp_inference(
     text: str = Form(...),
@@ -55,12 +81,13 @@ def nlp_inference(
 def cv_inference(
     image: UploadFile = File(...),
     event_id: str | None = Form(None),
+    stream_id: str | None = Form(None),
     _: str = Depends(require_permission("inference.write")),
 ):
     supabase = get_supabase()
     image_bytes = image.file.read()
-    result = run_object_detection(image_bytes)
-    model = _get_or_create_model("detr-object-detection", "v1", "cv", "transformers")
+    result = analyze_image(image_bytes, stream_id=stream_id)
+    model = _get_or_create_model("farsi-vision-analytics", "v1", "cv", "opencv+transformers")
     created = supabase.table("ml_inference_results").insert(
         {
             "event_id": event_id,
@@ -69,6 +96,46 @@ def cv_inference(
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
     ).execute()
+    if stream_id:
+        supabase.table("surveillance_frames").insert(
+            {
+                "stream_id": stream_id,
+                "detections": result.get("detections", []),
+                "captured_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+    _store_flagged_visual_events(flagged_events=result.get("flagged_events", []), stream_id=stream_id)
+    return {"result": result, "stored": created.data[0] if created.data else None}
+
+
+@router.post("/cv/video")
+def cv_video_inference(
+    video: UploadFile = File(...),
+    event_id: str | None = Form(None),
+    stream_id: str | None = Form(None),
+    sample_every_n_frames: int = Form(5),
+    max_frames: int = Form(300),
+    _: str = Depends(require_permission("inference.write")),
+):
+    supabase = get_supabase()
+    video_bytes = video.file.read()
+    result = analyze_video(
+        video_bytes,
+        stream_id=stream_id,
+        sample_every_n_frames=max(1, sample_every_n_frames),
+        max_frames=max(1, min(max_frames, 2000)),
+    )
+    model = _get_or_create_model("farsi-vision-analytics", "v1", "cv", "opencv+transformers")
+    created = supabase.table("ml_inference_results").insert(
+        {
+            "event_id": event_id,
+            "model_id": model["id"],
+            "result": result,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    ).execute()
+    _store_flagged_visual_events(flagged_events=result.get("flagged_events", []), stream_id=stream_id)
     return {"result": result, "stored": created.data[0] if created.data else None}
 
 

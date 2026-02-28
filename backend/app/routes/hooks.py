@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 from ..deps import require_permission
-from ..ml.cv import run_object_detection
+from ..ml.cv import analyze_image, analyze_video
 from ..ml.nlp import run_nlp
 from ..supabase_client import get_supabase
 
@@ -28,6 +28,28 @@ def _get_or_create_model(name: str, version: str, model_type: str, framework: st
         or []
     )
     return existing[0]
+
+
+def _store_flagged_visual_events(flagged_events: list[dict], stream_id: str | None = None) -> None:
+    if not flagged_events:
+        return
+    supabase = get_supabase()
+    rows = []
+    for event in flagged_events:
+        details = event.get("details", {})
+        rows.append(
+            {
+                "event_type": event.get("event_type", "suspicious_activity"),
+                "subject": event.get("subject"),
+                "location": stream_id,
+                "event_description": (
+                    f"CV flag: {details.get('type', 'unknown')} "
+                    f"(severity={details.get('severity', 'n/a')}, score={details.get('score', 'n/a')})"
+                )[:1990],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    supabase.table("surveillance_logs").insert(rows).execute()
 
 
 def _run_event_inference(event_id: str) -> None:
@@ -57,11 +79,15 @@ def _run_event_inference(event_id: str) -> None:
         else:
             bucket, path = "ingestion-media", media_path
         file_bytes = supabase.storage.from_(bucket).download(path)
-        result = run_object_detection(file_bytes)
-        model = _get_or_create_model("detr-object-detection", "v1", "cv", "transformers")
+        if modality == "video":
+            result = analyze_video(file_bytes, stream_id=event.get("source_stream_id"))
+        else:
+            result = analyze_image(file_bytes, stream_id=event.get("source_stream_id"))
+        model = _get_or_create_model("farsi-vision-analytics", "v1", "cv", "opencv+transformers")
         supabase.table("ml_inference_results").insert(
             {"event_id": event_id, "model_id": model["id"], "result": result, "created_at": now}
         ).execute()
+        _store_flagged_visual_events(result.get("flagged_events", []), stream_id=event.get("source_stream_id"))
 
     supabase.table("ingestion_events").update({"processed_at": now, "last_inference_at": now}).eq("id", event_id).execute()
 

@@ -28,6 +28,7 @@ uvicorn backend.app.main:app --reload --port 8000
 - `GET /models`
 - `POST /inference/nlp`
 - `POST /inference/cv`
+- `POST /inference/cv/video`
 - `POST /inference/heatmap`
 - `GET /heatmap`
 - `GET /graph/nodes`
