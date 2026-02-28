@@ -19,6 +19,8 @@ import IntelligenceReportsPage from "./pages/IntelligenceReportsPage";
 import CommunicationsPage from "./pages/CommunicationsPage";
 import DataFusionPage from "./pages/DataFusionPage";
 import CrimeModelPage from "./pages/CrimeModelPage";
+import MLIntelligencePage from "./pages/MLIntelligencePage";
+import AuditLogsPage from "./pages/AuditLogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
