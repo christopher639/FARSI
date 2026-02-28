@@ -33,6 +33,8 @@ export default function NetworkAnalysisPage() {
   const { isAdmin } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [rebuildingGraph, setRebuildingGraph] = useState(false);
+  const [graphVersion, setGraphVersion] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterThreat, setFilterThreat] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"graph" | "table">("graph");
@@ -119,6 +121,19 @@ export default function NetworkAnalysisPage() {
     }
   };
 
+  const handleRebuildGraph = async () => {
+    setRebuildingGraph(true);
+    try {
+      await apiPost("/graph/rebuild?clear_existing=true", {});
+      toast.success("Entity graph rebuilt");
+      setGraphVersion((v) => v + 1);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to rebuild graph");
+    } finally {
+      setRebuildingGraph(false);
+    }
+  };
+
   const formatBytes = (bytes: number | null) => {
     if (!bytes) return "-";
     if (bytes < 1024) return `${bytes} B`;
@@ -149,6 +164,21 @@ export default function NetworkAnalysisPage() {
           >
             Table
           </Button>
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={handleRebuildGraph} disabled={rebuildingGraph}>
+              {rebuildingGraph ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Rebuilding
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Rebuild Graph
+                </>
+              )}
+            </Button>
+          )}
           {isAdmin && (
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
@@ -362,7 +392,7 @@ export default function NetworkAnalysisPage() {
       {/* Content */}
       {viewMode === "graph" ? (
         <div className="h-[calc(100vh-24rem)] bg-card border border-panel-border rounded-lg">
-          <NetworkGraph />
+          <NetworkGraph key={graphVersion} />
         </div>
       ) : (
         <div className="bg-card border border-panel-border rounded-lg overflow-hidden">

@@ -32,6 +32,8 @@ uvicorn backend.app.main:app --reload --port 8000
 - `POST /inference/heatmap`
 - `GET /heatmap`
 - `GET /graph/nodes`
+- `GET /graph/intelligence`
+- `POST /graph/rebuild`
 - `GET /export/crime-events`
 - `POST /hooks/ingestion`
 
@@ -40,3 +42,4 @@ uvicorn backend.app.main:app --reload --port 8000
 - For ingestion, you can use Supabase JWT auth or `X-API-Key` if `INGEST_API_KEY` is set.
 - Run `python -m pipeline.ml_inference_worker` to enrich ingestion events with real ML results.
 - Run `python -m pipeline.continuous_inference_worker` for cron-like continuous processing.
+- Set `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` to enable graph DB synchronization and hidden-link path queries.

@@ -23,6 +23,11 @@ class Settings:
         self.allow_public_read = os.getenv("ALLOW_PUBLIC_READ", "false").lower() == "true"
         self.ingest_api_key = _get_env("INGEST_API_KEY")
         self.media_bucket = _get_env("MEDIA_BUCKET", "ingestion-media")
+        self.neo4j_uri = _get_env("NEO4J_URI")
+        self.neo4j_user = _get_env("NEO4J_USER")
+        self.neo4j_password = _get_env("NEO4J_PASSWORD")
+        self.neo4j_database = _get_env("NEO4J_DATABASE", "neo4j")
+        self.neo4j_encrypted = os.getenv("NEO4J_ENCRYPTED", "false").lower() == "true"
 
     def validate(self) -> None:
         missing = []

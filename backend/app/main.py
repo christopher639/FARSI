@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
+from .neo4j_client import close_neo4j_driver
 from .routes import (
     agencies,
     analytics,
@@ -64,6 +65,10 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health() -> dict:
         return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+
+    @app.on_event("shutdown")
+    def _shutdown() -> None:
+        close_neo4j_driver()
 
     return app
 

@@ -6,18 +6,20 @@ import { getErrorMessage } from "@/lib/errors";
 interface Node {
   id: string;
   label: string;
-  type: "person" | "organization" | "location" | "vehicle";
+  type: "person" | "organization" | "location" | "vehicle" | "infrastructure";
   x: number;
   y: number;
   connections: string[];
   threat: boolean;
+  riskScore: number;
 }
 
 interface GraphNode {
   id: string;
   label: string;
   entity_type: string;
-  metadata?: { x?: number; y?: number; threat?: boolean };
+  metadata?: { x?: number; y?: number; threat?: boolean; risk_score?: number };
+  properties?: { x?: number; y?: number; threat?: boolean; risk_score?: number };
 }
 
 interface GraphEdge {
@@ -26,15 +28,31 @@ interface GraphEdge {
   target_id: string;
 }
 
+interface HiddenConnection {
+  source_id: string;
+  target_id: string;
+  score: number;
+}
+
+interface GraphIntelligenceResponse {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  hidden_connections: HiddenConnection[];
+  gnn?: { top_entities?: Array<{ id: string; risk: number }> };
+}
+
 const nodeStyles = {
   person: { color: "fill-primary", stroke: "stroke-primary", bg: "bg-primary" },
   organization: { color: "fill-warning", stroke: "stroke-warning", bg: "bg-warning" },
   location: { color: "fill-success", stroke: "stroke-success", bg: "bg-success" },
   vehicle: { color: "fill-muted-foreground", stroke: "stroke-muted-foreground", bg: "bg-muted-foreground" },
+  infrastructure: { color: "fill-accent", stroke: "stroke-accent", bg: "bg-accent" },
 };
 
 export function NetworkGraph() {
   const [nodes, setNodes] = useState<Node[]>([]);
+  const [hiddenConnections, setHiddenConnections] = useState<HiddenConnection[]>([]);
+  const [topRiskCount, setTopRiskCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,13 +60,14 @@ export function NetworkGraph() {
     try {
       setLoading(true);
       setError(null);
-      const [nodesData, edgesData] = await Promise.all([
-        apiGet<GraphNode[]>("/graph/nodes"),
-        apiGet<GraphEdge[]>("/graph/edges"),
-      ]);
+      const intelligence = await apiGet<GraphIntelligenceResponse>("/graph/intelligence");
+      const nodesData = intelligence?.nodes || [];
+      const edgesData = intelligence?.edges || [];
 
       if (!nodesData?.length) {
         setNodes([]);
+        setHiddenConnections([]);
+        setTopRiskCount(0);
         return;
       }
 
@@ -63,15 +82,20 @@ export function NetworkGraph() {
         id: n.id,
         label: n.label,
         type: (n.entity_type as Node["type"]) || "person",
-        x: n.metadata?.x ?? (idx * 13) % 90 + 5,
-        y: n.metadata?.y ?? (idx * 17) % 90 + 5,
+        x: n.metadata?.x ?? n.properties?.x ?? (idx * 13) % 90 + 5,
+        y: n.metadata?.y ?? n.properties?.y ?? (idx * 17) % 90 + 5,
         connections: edgesBySource.get(n.id) || [],
-        threat: Boolean(n.metadata?.threat),
+        threat: Boolean(n.metadata?.threat ?? n.properties?.threat),
+        riskScore: Number(n.metadata?.risk_score ?? n.properties?.risk_score ?? 0),
       }));
 
       setNodes(mapped);
+      setHiddenConnections(intelligence?.hidden_connections || []);
+      setTopRiskCount(intelligence?.gnn?.top_entities?.length || 0);
     } catch (err: unknown) {
       setNodes([]);
+      setHiddenConnections([]);
+      setTopRiskCount(0);
       setError(getErrorMessage(err, "Failed to load network graph"));
     } finally {
       setLoading(false);
@@ -92,7 +116,7 @@ export function NetworkGraph() {
           <div>
             <h2 className="font-semibold text-foreground">Network Analysis</h2>
             <p className="text-xs text-muted-foreground font-mono">
-              {nodes.length} entities | {nodes.filter((n) => n.threat).length} flagged
+              {nodes.length} entities | {nodes.filter((n) => n.threat).length} flagged | {hiddenConnections.length} hidden links
             </p>
           </div>
         </div>
@@ -126,6 +150,25 @@ export function NetworkGraph() {
         )}
 
         <svg className="w-full h-full" viewBox="0 0 100 100">
+          {hiddenConnections.map((link) => {
+            const source = nodes.find((n) => n.id === link.source_id);
+            const target = nodes.find((n) => n.id === link.target_id);
+            if (!source || !target) return null;
+            return (
+              <line
+                key={`hidden-${link.source_id}-${link.target_id}`}
+                x1={source.x}
+                y1={source.y}
+                x2={target.x}
+                y2={target.y}
+                stroke="hsl(var(--warning))"
+                strokeWidth="0.25"
+                opacity="0.5"
+                strokeDasharray="1 1"
+              />
+            );
+          })}
+
           {nodes.map((node) =>
             node.connections.map((targetId) => {
               const target = nodes.find((n) => n.id === targetId);
@@ -167,7 +210,7 @@ export function NetworkGraph() {
                   r="3"
                   className={`${style.color} ${style.stroke}`}
                   strokeWidth="0.5"
-                  opacity={node.threat ? 1 : 0.7}
+                  opacity={node.threat ? 1 : Math.max(0.35, node.riskScore)}
                 />
                 <text
                   x={node.x}
@@ -193,6 +236,7 @@ export function NetworkGraph() {
               </div>
             ))}
           </div>
+          <span className="text-muted-foreground font-mono">Top risk entities: {topRiskCount}</span>
         </div>
       </div>
     </div>

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import math
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 from fastapi import APIRouter, Depends
 
 from ..deps import allow_public_read, require_permission
+from ..ml.network_graph import predictive_heatmap_from_events, run_gnn_risk_scoring
 from ..supabase_client import get_supabase
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -26,50 +25,10 @@ CRIME_SEVERITY: dict[str, int] = {
 }
 
 
-def _to_float(value: float | int | str | None) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _parse_datetime(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
 def _severity_score(crime_type: str | None) -> float:
     if not crime_type:
         return 0.6
     return (CRIME_SEVERITY.get(crime_type.strip(), 3)) / 5
-
-
-def _open_case_flag(last_outcome: str | None) -> float:
-    if not last_outcome:
-        return 0.5
-    outcome = last_outcome.lower()
-    if "under investigation" in outcome or "awaiting" in outcome or "open" in outcome:
-        return 1.0
-    if "unable to prosecute" in outcome or "no suspect" in outcome:
-        return 0.75
-    return 0.0
-
-
-def _area_label(row: dict[str, Any]) -> str:
-    area_name = (row.get("area_name") or "").strip()
-    if area_name:
-        return area_name
-    location = (row.get("location") or "").strip()
-    if location:
-        return location.split(",")[0].strip() or location
-    crime_type = (row.get("crime_type") or "").strip()
-    return crime_type or "Unknown"
 
 
 @router.get("/crime-patterns")
@@ -110,9 +69,7 @@ def crime_patterns(_: str | None = Depends(allow_public_read("events.read"))):
 def predicted_hotspots(_: str | None = Depends(allow_public_read("events.read"))):
     supabase = get_supabase()
     now = datetime.now(timezone.utc)
-    recent_window_start = now - timedelta(days=14)
-    prior_window_start = now - timedelta(days=28)
-    horizon_end = now + timedelta(days=7)
+    horizon_days = 7
 
     result = (
         supabase.table("crime_events")
@@ -129,113 +86,26 @@ def predicted_hotspots(_: str | None = Depends(allow_public_read("events.read"))
 
     rows = result.data or []
     if not rows:
-        return {"hotspots": [], "model": "recency-trend-risk-v1", "horizon_days": 7}
+        return {"hotspots": [], "model": "gnn-threat-fusion-v1", "horizon_days": horizon_days}
 
-    by_area: dict[str, dict[str, Any]] = {}
+    node_rows = supabase.table("entity_nodes").select("id,label,entity_type,properties").limit(5000).execute().data or []
+    edge_rows = supabase.table("entity_edges").select("source_id,target_id,relationship,properties").limit(8000).execute().data or []
+    gnn = run_gnn_risk_scoring(node_rows, edge_rows)
+    graph_risk = gnn.get("risk_by_node", {})
+
+    enriched = []
     for row in rows:
-        lat = _to_float(row.get("latitude"))
-        lon = _to_float(row.get("longitude"))
-        created_at = _parse_datetime(row.get("created_at"))
-        if lat is None or lon is None or created_at is None:
-            continue
+        row = dict(row)
+        row["severity_score"] = _severity_score(row.get("crime_type"))
+        enriched.append(row)
 
-        label = _area_label(row)
-        entry = by_area.get(label)
-        if entry is None:
-            entry = {
-                "label": label,
-                "lat_weighted_sum": 0.0,
-                "lon_weighted_sum": 0.0,
-                "weight_sum": 0.0,
-                "severity_weighted_sum": 0.0,
-                "open_weighted_sum": 0.0,
-                "recent_incidents": 0,
-                "prior_incidents": 0,
-                "active_days": set(),
-            }
-            by_area[label] = entry
-
-        age_days = max((now - created_at).total_seconds() / 86400, 0.0)
-        recency_weight = math.exp(-(age_days / 30))
-        severity = _severity_score(row.get("crime_type"))
-        open_case = _open_case_flag(row.get("last_outcome_category"))
-
-        entry["lat_weighted_sum"] += lat * recency_weight
-        entry["lon_weighted_sum"] += lon * recency_weight
-        entry["weight_sum"] += recency_weight
-        entry["severity_weighted_sum"] += severity * recency_weight
-        entry["open_weighted_sum"] += open_case * recency_weight
-        entry["active_days"].add(created_at.date().isoformat())
-
-        if created_at >= recent_window_start:
-            entry["recent_incidents"] += 1
-        elif created_at >= prior_window_start:
-            entry["prior_incidents"] += 1
-
-    if not by_area:
-        return {"hotspots": [], "model": "recency-trend-risk-v1", "horizon_days": 7}
-
-    max_weight = max(float(value["weight_sum"]) for value in by_area.values())
-    max_weight = max(max_weight, 1.0)
-
-    scored: list[dict[str, Any]] = []
-    for value in by_area.values():
-        weight_sum = float(value["weight_sum"])
-        if weight_sum <= 0:
-            continue
-
-        frequency_score = min(weight_sum / max_weight, 1.0)
-        severity_score = min(float(value["severity_weighted_sum"]) / weight_sum, 1.0)
-        unresolved_rate = min(float(value["open_weighted_sum"]) / weight_sum, 1.0)
-
-        recent = int(value["recent_incidents"])
-        prior = int(value["prior_incidents"])
-        trend_ratio = (recent + 1) / (prior + 1)
-        trend_score = min(max((trend_ratio - 1) / 2, 0.0), 1.0)
-
-        repeat_exposure = min(len(value["active_days"]) / 14, 1.0)
-
-        risk_score = 100 * (
-            0.35 * frequency_score
-            + 0.20 * trend_score
-            + 0.20 * severity_score
-            + 0.15 * unresolved_rate
-            + 0.10 * repeat_exposure
-        )
-        attack_probability = 1 / (1 + math.exp(-(risk_score - 50) / 9))
-
-        tier = "LOW"
-        if risk_score >= 75:
-            tier = "CRITICAL"
-        elif risk_score >= 55:
-            tier = "HIGH"
-        elif risk_score >= 35:
-            tier = "MEDIUM"
-
-        scored.append(
-            {
-                "label": value["label"],
-                "latitude": float(value["lat_weighted_sum"]) / weight_sum,
-                "longitude": float(value["lon_weighted_sum"]) / weight_sum,
-                "risk_score": risk_score,
-                "tier": tier,
-                "attack_probability": attack_probability,
-                "recent_incidents": recent,
-                "prior_incidents": prior,
-                "trend_ratio": trend_ratio,
-                "severity_score": severity_score,
-                "unresolved_rate": unresolved_rate,
-                "repeat_exposure": repeat_exposure,
-                "prediction_window_start": now.isoformat(),
-                "prediction_window_end": horizon_end.isoformat(),
-            }
-        )
-
-    hotspots = sorted(scored, key=lambda h: h["risk_score"], reverse=True)[:10]
+    hotspots = predictive_heatmap_from_events(enriched, graph_risk, horizon_days=horizon_days)
     return {
         "hotspots": hotspots,
-        "model": "recency-trend-risk-v1",
-        "horizon_days": 7,
+        "model": "gnn-threat-fusion-v1",
+        "horizon_days": horizon_days,
+        "graph_model": gnn.get("model"),
+        "graph_top_entities": gnn.get("top_entities", [])[:10],
         "generated_at": now.isoformat(),
     }
 
