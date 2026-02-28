@@ -14,7 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  Users
+  Users,
+  Sparkles,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,6 +49,8 @@ const navItems: NavItem[] = [
   { icon: Radio, label: "Communications", path: "/communications" },
   { icon: Database, label: "Data Fusion Hub", path: "/data-fusion" },
   { icon: Brain, label: "Crime Model Explorer", path: "/crime-model" },
+  { icon: Sparkles, label: "ML Intelligence", path: "/ml-intelligence" },
+  { icon: ClipboardList, label: "Audit Logs", path: "/audit-logs", adminOnly: true },
   { icon: Users, label: "User Management", path: "/users", adminOnly: true },
   { icon: Settings, label: "System Settings", path: "/system-settings", adminOnly: true },
 ];

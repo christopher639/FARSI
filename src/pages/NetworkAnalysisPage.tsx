@@ -3,7 +3,7 @@ import { useNetworkData } from "@/hooks/useNetworkData";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiPost, apiDelete } from "@/lib/api";
 import { NetworkGraph } from "@/components/dashboard/NetworkGraph";
-import { Search, Filter, ZoomIn, ZoomOut, Maximize2, Plus, AlertTriangle, Activity, Server, Globe, Loader2, Trash2 } from "lucide-react";
+import { Search, Filter, ZoomIn, ZoomOut, Maximize2, Plus, AlertTriangle, Activity, Server, Globe, Loader2, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

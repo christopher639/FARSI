@@ -19,6 +19,8 @@ import IntelligenceReportsPage from "./pages/IntelligenceReportsPage";
 import CommunicationsPage from "./pages/CommunicationsPage";
 import DataFusionPage from "./pages/DataFusionPage";
 import CrimeModelPage from "./pages/CrimeModelPage";
+import MLIntelligencePage from "./pages/MLIntelligencePage";
+import AuditLogsPage from "./pages/AuditLogsPage";
 import SettingsPage from "./pages/SettingsPage";
 import UsersPage from "./pages/UsersPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
@@ -53,6 +55,8 @@ const App = () => (
                 <Route path="/communications" element={<CommunicationsPage />} />
                 <Route path="/data-fusion" element={<DataFusionPage />} />
                 <Route path="/crime-model" element={<CrimeModelPage />} />
+                <Route path="/ml-intelligence" element={<MLIntelligencePage />} />
+                <Route path="/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/system-settings" element={<SystemSettingsPage />} />
