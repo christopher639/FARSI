@@ -14,7 +14,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  Users
+  Users,
+  Sparkles,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
