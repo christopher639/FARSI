@@ -10,6 +10,7 @@ import {
   Radio,
   Database,
   Brain,
+  Crosshair,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
   { icon: Brain, label: "Crime Model Explorer", path: "/crime-model" },
   { icon: Sparkles, label: "ML Intelligence", path: "/ml-intelligence" },
   { icon: ClipboardList, label: "Audit Logs", path: "/audit-logs", adminOnly: true },
+  { icon: Crosshair, label: "Crime Prediction", path: "/crime-prediction" },
   { icon: Users, label: "User Management", path: "/users", adminOnly: true },
   { icon: Settings, label: "System Settings", path: "/system-settings", adminOnly: true },
 ];
