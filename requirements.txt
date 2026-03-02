@@ -4,7 +4,7 @@ notebook
 fastapi
 uvicorn
 python-multipart
-supabase
+supabase<2.20
 requests
 python-dotenv
 transformers
