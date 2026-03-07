@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useSurveillanceLogs } from "@/hooks/useSurveillanceLogs";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api";
-import { Eye, Video, Camera, MapPin, Clock, Plus, Loader2, Edit, Trash2 } from "lucide-react";
+import { Eye, Video, Camera, MapPin, Clock, Plus, Loader2, Edit, Trash2, ScanFace } from "lucide-react";
+import CriminalFaceHUD from "@/components/surveillance/CriminalFaceHUD";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,7 +59,7 @@ export default function SurveillancePage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingLog, setEditingLog] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"cameras" | "logs">("cameras");
+  const [activeTab, setActiveTab] = useState<"cameras" | "logs" | "face_recognition">("cameras");
 
   const [formData, setFormData] = useState({
     event_type: "",
@@ -368,9 +369,19 @@ export default function SurveillancePage() {
           <Eye className="w-4 h-4 mr-2" />
           Event Logs ({logs.length})
         </Button>
+        <Button
+          variant={activeTab === "face_recognition" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("face_recognition")}
+        >
+          <ScanFace className="w-4 h-4 mr-2" />
+          Face Recognition
+        </Button>
       </div>
 
-      {activeTab === "cameras" ? (
+      {activeTab === "face_recognition" ? (
+        <CriminalFaceHUD />
+      ) : activeTab === "cameras" ? (
         /* Camera Grid */
         streamsLoading ? (
           <div className="flex items-center justify-center py-12">

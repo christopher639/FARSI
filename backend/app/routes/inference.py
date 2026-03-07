@@ -187,6 +187,90 @@ def cv_video_inference(
     return {"result": result, "stored": created.data[0] if created.data else None}
 
 
+@router.post("/face-search")
+def face_search(
+    image: UploadFile = File(...),
+    similarity_threshold: float = Form(0.45),
+    top_k: int = Form(5),
+    stream_id: str | None = Form(None),
+    _: str = Depends(require_permission("inference.write")),
+):
+    """Search uploaded image against the criminal face database using ArcFace + FAISS."""
+    from ..ml.face_recognition import search_faces
+
+    image_bytes = image.file.read()
+    result = search_faces(
+        image_bytes,
+        similarity_threshold=similarity_threshold,
+        top_k=top_k,
+    )
+
+    # Store inference result
+    try:
+        supabase = get_supabase()
+        model = _get_or_create_model("arcface-criminal-search", "v1", "face-recognition", "insightface+faiss")
+        supabase.table("ml_inference_results").insert(
+            {
+                "model_id": model["id"],
+                "result": result,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).execute()
+
+        # Log matched suspects as surveillance events
+        for face_match in result.get("matches", []):
+            for suspect in face_match.get("suspects", []):
+                supabase.table("surveillance_logs").insert(
+                    {
+                        "event_type": "facial_recognition",
+                        "subject": suspect.get("name", "Unknown"),
+                        "location": stream_id,
+                        "event_description": (
+                            f"Face match: {suspect.get('name')} "
+                            f"(ID: {suspect.get('suspect_id')}, "
+                            f"confidence: {suspect.get('match_pct')}, "
+                            f"risk: {suspect.get('risk_level', 'N/A')})"
+                        ),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).execute()
+    except Exception:
+        pass  # Non-blocking — result is still returned
+
+    return result
+
+
+@router.get("/face-search/suspects")
+def list_face_suspects(
+    _: str | None = Depends(require_permission("inference.read")),
+):
+    """Return all suspects in the face recognition database."""
+    from ..ml.face_recognition import get_suspect_database
+    return {"suspects": get_suspect_database()}
+
+
+@router.get("/face-search/status")
+def face_model_status(
+    _: str | None = Depends(require_permission("inference.read")),
+):
+    """Return the current status of the face recognition model."""
+    from ..ml.face_recognition import get_model_status
+    return get_model_status()
+
+
+@router.post("/face-detect")
+def face_detect(
+    image: UploadFile = File(...),
+    _: str = Depends(require_permission("inference.write")),
+):
+    """Detect faces in an image without searching the suspect database."""
+    from ..ml.face_recognition import detect_faces
+
+    image_bytes = image.file.read()
+    faces = detect_faces(image_bytes)
+    return {"faces_detected": len(faces), "faces": faces}
+
+
 @router.post("/heatmap")
 def heatmap_inference(
     window_hours: int = Form(24),
